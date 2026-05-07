@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router  = express.Router();
 const bcrypt  = require('bcrypt');
 const multer  = require('multer');
@@ -10,16 +11,32 @@ const siteSettings = require('../site-settings');
 const orderStatus  = require('../order-status');
 const { sendCustomerStatusEmail, sendTestEmail } = require('../mailer');
 const { getSquareConfig } = require('../square-config');
+const { sanitizeRichText, safeUrl } = require('../sanitize');
 
 // ─── Multer for image uploads ─────────────────────────────────────────────────
+// Accept only common image formats. SVG explicitly disallowed because it can
+// contain executable script. Filename derived from crypto-random bytes so a
+// crafted originalname can't path-traverse or overwrite anything.
+const ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MIME_TO_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' };
+
+const crypto = require('crypto');
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '..', 'public', 'uploads'),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+    const ext = MIME_TO_EXT[file.mimetype] || '.bin';
+    const rnd = crypto.randomBytes(12).toString('hex');
+    cb(null, `${Date.now()}-${rnd}${ext}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIMES.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Only JPG, PNG, GIF, or WebP images are allowed.'));
+  },
+});
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
@@ -27,13 +44,24 @@ function requireAdmin(req, res, next) {
   res.redirect('/admin/login');
 }
 
+// Rate limit failed login attempts. 10 per IP per 15 min — generous for legitimate
+// retries (typo, forgot password) but tight against brute force.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: 'Too many login attempts. Please try again in 15 minutes.',
+});
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 router.get('/login', (req, res) => {
   if (req.session.adminLoggedIn) return res.redirect('/admin');
   res.render('admin/login', { title: 'Admin Login' });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   // DB hash takes precedence over env hash, so /admin/settings password changes work.
   const settings = await siteSettings.load();
@@ -42,8 +70,17 @@ router.post('/login', async (req, res) => {
   if (username === config.admin.username && effectiveHash) {
     const match = await bcrypt.compare(password, effectiveHash);
     if (match) {
-      req.session.adminLoggedIn = true;
-      return res.redirect('/admin');
+      // Regenerate the session on auth so any pre-auth CSRF token is rotated and
+      // an attacker who set a session cookie pre-login can't ride it post-login.
+      return req.session.regenerate((err) => {
+        if (err) {
+          console.error('session.regenerate failed:', err);
+          req.session.flash = { type: 'error', message: 'Login error. Please try again.' };
+          return res.redirect('/admin/login');
+        }
+        req.session.adminLoggedIn = true;
+        res.redirect('/admin');
+      });
     }
   }
   req.session.flash = { type: 'error', message: 'Invalid username or password.' };
@@ -113,7 +150,8 @@ router.get('/stores/new', requireAdmin, async (req, res) => {
 router.post('/stores/new', requireAdmin, upload.single('image'), csrfCheck, async (req, res) => {
   const { name, slug, description, active, personalization_name_price, personalization_number_price, tax_rate,
           orders_close_at, order_deadline_message } = req.body;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : '';
+  // file → server-generated /uploads path; otherwise sanitize whatever was hidden in the form
+  const image_url = req.file ? `/uploads/${req.file.filename}` : safeUrl(req.body.existing_image);
   const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
   const closeAt = orders_close_at ? orders_close_at : null;
 
@@ -164,7 +202,7 @@ router.get('/stores/:id/edit', requireAdmin, async (req, res) => {
 router.post('/stores/:id/edit', requireAdmin, upload.single('image'), csrfCheck, async (req, res) => {
   const { name, slug, description, active, personalization_name_price, personalization_number_price, tax_rate,
           orders_close_at, order_deadline_message } = req.body;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : req.body.existing_image || '';
+  const image_url = req.file ? `/uploads/${req.file.filename}` : safeUrl(req.body.existing_image);
   const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
   const closeAt = orders_close_at ? orders_close_at : null;
 
@@ -242,7 +280,7 @@ router.get('/stores/:storeId/items/:id/edit', requireAdmin, async (req, res) => 
 
 router.post('/stores/:storeId/items/:id/edit', requireAdmin, upload.single('image'), csrfCheck, async (req, res) => {
   const { name, description, base_price, personalization_enabled, sort_order } = req.body;
-  const image_url = req.file ? `/uploads/${req.file.filename}` : req.body.existing_image || '';
+  const image_url = req.file ? `/uploads/${req.file.filename}` : safeUrl(req.body.existing_image);
   await db.query(
     `UPDATE items SET name=$1, description=$2, image_url=$3, base_price=$4, personalization_enabled=$5,
      sort_order=$6 WHERE id=$7 AND store_id=$8`,
@@ -674,7 +712,8 @@ router.post('/orders/:id/refund', requireAdmin, async (req, res) => {
         environment: square.environment === 'production' ? Environment.Production : Environment.Sandbox,
       });
       const { result } = await client.refundsApi.refundPayment({
-        idempotencyKey: `refund-${orderId}-${Date.now()}`,
+        // Stable per-order key so accidental double-clicks dedupe at Square.
+        idempotencyKey: `refund-${orderId}`,
         paymentId,
         amountMoney: {
           amount: BigInt(Math.round(parseFloat(order.total_amount) * 100)),
@@ -732,9 +771,11 @@ router.post('/orders/:id/fulfill', requireAdmin, async (req, res) => {
     );
   }
 
-  // Only allow same-origin redirects (relative paths)
-  const back = (typeof req.query.return === 'string' && req.query.return.startsWith('/'))
-    ? req.query.return : `/admin/orders/${orderId}`;
+  // Only allow same-origin redirects. `/path` is OK; `//evil.com` (protocol-relative)
+  // and any backslash variant are NOT.
+  const ret = String(req.query.return || '');
+  const isLocal = ret.startsWith('/') && !ret.startsWith('//') && !ret.startsWith('/\\');
+  const back = isLocal ? ret : `/admin/orders/${orderId}`;
   res.redirect(back);
 });
 
@@ -813,20 +854,29 @@ router.get('/stores/:storeId/export', requireAdmin, async (req, res) => {
     'Personalization Name','Personalization Number','Pickup Event'
   ];
 
-  const csvRows = [headers.join(',')];
+  // CSV value escape: defends against formula injection (CWE-1236) by prefixing
+  // any value starting with =/+/-/@/tab/CR with a leading apostrophe, doubles
+  // inner quotes, and wraps everything in double quotes for safety.
+  const csvCell = (v) => {
+    let s = (v === null || v === undefined) ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+
+  const csvRows = [headers.map(csvCell).join(',')];
   for (const r of rows.rows) {
     csvRows.push([
-      r.order_id, `"${r.customer_name}"`, r.customer_email, r.customer_phone,
-      r.customer_cell, `"${r.customer_address}"`, r.customer_city, r.customer_state, r.customer_zip,
+      r.order_id, r.customer_name, r.customer_email, r.customer_phone,
+      r.customer_cell, r.customer_address, r.customer_city, r.customer_state, r.customer_zip,
       r.status, r.total_amount, new Date(r.created_at).toLocaleDateString(),
-      `"${r.item_name}"`, r.color_name, r.size_name, r.quantity, r.unit_price,
-      `"${r.personalization_name || ''}"`, `"${r.personalization_number || ''}"`, `"${r.pickup_event || ''}"`
-    ].join(','));
+      r.item_name, r.color_name, r.size_name, r.quantity, r.unit_price,
+      r.personalization_name || '', r.personalization_number || '', r.pickup_event || '',
+    ].map(csvCell).join(','));
   }
 
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="${store.rows[0].slug}-orders.csv"`);
-  res.send(csvRows.join('\n'));
+  res.send(csvRows.join('\r\n'));
 });
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -930,13 +980,20 @@ router.get('/reports/blanks/export', requireAdmin, async (req, res) => {
     ORDER BY oi.item_name, oi.color_name, oi.size_name
   `, [ids]);
 
-  const csvRows = ['Item,Color,Size,Total Qty'];
+  // CSV cell escape — see /admin/stores/:storeId/export for rationale.
+  const csvCell = (v) => {
+    let s = (v === null || v === undefined) ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+
+  const csvRows = [['Item','Color','Size','Total Qty'].map(csvCell).join(',')];
   for (const r of result.rows) {
-    csvRows.push([`"${r.item_name}"`, `"${r.color_name || ''}"`, r.size_name || '', r.total_qty].join(','));
+    csvRows.push([r.item_name, r.color_name || '', r.size_name || '', r.total_qty].map(csvCell).join(','));
   }
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="blank-order.csv"');
-  res.send(csvRows.join('\n'));
+  res.send(csvRows.join('\r\n'));
 });
 
 // Customization detail: per store + optional pickup event, every personalized line
@@ -1135,14 +1192,15 @@ router.post('/settings', requireAdmin, upload.single('logo'), csrfCheck, async (
     clear_logo,
   } = req.body;
 
-  // Logo: new upload wins, then "clear" checkbox, otherwise keep existing
+  // Logo: new upload wins, then "clear" checkbox, otherwise keep existing.
+  // existing_logo is round-tripped through the form so we sanitize it.
   let logo_url;
   if (req.file) {
     logo_url = `/uploads/${req.file.filename}`;
   } else if (clear_logo === 'on') {
     logo_url = '';
   } else {
-    logo_url = req.body.existing_logo || '';
+    logo_url = safeUrl(req.body.existing_logo);
   }
 
   // For credential fields (smtp_pass, square_access_token), blank submission means
@@ -1168,12 +1226,12 @@ router.post('/settings', requireAdmin, upload.single('logo'), csrfCheck, async (
       brand_tagline || '',
       (brand_color && /^#[0-9a-fA-F]{6}$/.test(brand_color)) ? brand_color : '#2e7d32',
       logo_url,
-      about_blurb || '',
+      sanitizeRichText(about_blurb || ''),
       company_phone || '',
       company_address || '',
       company_email || '',
-      facebook_url || '',
-      privacy_policy_html || '',
+      safeUrl(facebook_url),
+      sanitizeRichText(privacy_policy_html || ''),
       contact_recipient_email || '',
       maintenance_enabled === 'on',
       maintenance_message || '',

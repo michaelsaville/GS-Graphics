@@ -111,6 +111,14 @@ router.post('/', async (req, res) => {
   const { subtotal, tax, total } = computeCartTotals(cart);
   const storeId = cart[0].storeId;
 
+  // Server-side sanity check: never accept zero/negative-total carts.
+  // Cart contents are session-controlled so a tampered client could try this.
+  if (total <= 0 || subtotal <= 0 || cart.some(i => i.quantity <= 0 || i.unitPrice < 0)) {
+    req.session.flash = { type: 'error', message: 'Your cart total is invalid. Please re-add your items.' };
+    req.session.cart = [];
+    return res.redirect('/cart');
+  }
+
   const square = await getSquareConfig();
 
   // Sandbox short-circuit: when not configured for production OR creds missing,
@@ -141,6 +149,9 @@ router.post('/', async (req, res) => {
 
     // Clear cart
     req.session.cart = [];
+
+    // Tag this session as the buyer of orderId so the confirmation page can show full details
+    req.session.recentOrderIds = [...(req.session.recentOrderIds || []), orderId];
 
     // Fire-and-forget receipt email; never block the redirect on it
     sendOrderNotifications(orderId);
@@ -258,6 +269,8 @@ router.get('/callback', async (req, res) => {
         ['paid', paymentId, orderId]
       );
       req.session.cart = [];
+      // Tag this session as the buyer
+      req.session.recentOrderIds = [...(req.session.recentOrderIds || []), parseInt(orderId)];
       sendOrderNotifications(orderId);
     }
     // Any other state (OPEN, CANCELED, DRAFT, etc.) — leave order pending; confirmation page
@@ -271,16 +284,27 @@ router.get('/callback', async (req, res) => {
 });
 
 // ─── Order confirmation ───────────────────────────────────────────────────────
+// Access control: only the session that placed the order (recentOrderIds) sees full
+// PII. Anyone else gets redirected to /track to enter email + order id.
 router.get('/confirmation/:id', async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  if (!Number.isFinite(orderId)) return res.redirect('/');
+
+  const recent = req.session.recentOrderIds || [];
+  if (!recent.includes(orderId)) {
+    // Not this session's order → bounce to /track with the id pre-filled
+    return res.redirect(`/track?order_id=${orderId}`);
+  }
+
   const order = await db.query(
     `SELECT o.*, s.name as store_name, pe.name as event_name, pe.event_date, pe.event_time, pe.location as event_location
      FROM orders o LEFT JOIN stores s ON o.store_id = s.id
      LEFT JOIN pickup_events pe ON o.pickup_event_id = pe.id
-     WHERE o.id = $1`, [req.params.id]
+     WHERE o.id = $1`, [orderId]
   );
   if (!order.rows[0]) return res.redirect('/');
 
-  const items = await db.query('SELECT * FROM order_items WHERE order_id = $1', [req.params.id]);
+  const items = await db.query('SELECT * FROM order_items WHERE order_id = $1', [orderId]);
 
   res.render('checkout/confirmation', {
     title: 'Order Confirmation',

@@ -1,6 +1,7 @@
 const express      = require('express');
 const session      = require('express-session');
 const pgSession    = require('connect-pg-simple')(session);
+const helmet       = require('helmet');
 const path         = require('path');
 const config       = require('./config');
 const { pool }     = require('./db');
@@ -9,6 +10,36 @@ const siteSettings = require('./site-settings');
 const orderStatus = require('./order-status');
 
 const app = express();
+
+// nginx terminates TLS in front of us; trust its X-Forwarded-* headers so
+// req.secure / req.ip are correct, and so secure: true cookies actually fire.
+app.set('trust proxy', 1);
+
+// ─── Security headers ────────────────────────────────────────────────────────
+// CSP allows: jsdelivr (Quill rich-text editor), maps.google.com (Contact iframe),
+// data: images, https: images. 'unsafe-inline' for scripts/styles is needed because
+// admin pages have inline event handlers and Quill writes inline styles. A nonce-based
+// CSP would be tighter but requires reworking every inline <script>.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc:    ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      imgSrc:      ["'self'", "data:", "https:"],
+      fontSrc:     ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      frameSrc:    ["https://maps.google.com", "https://www.google.com"],
+      connectSrc:  ["'self'"],
+      objectSrc:   ["'none'"],
+      baseUri:     ["'self'"],
+      formAction:  ["'self'", "https://*.squareup.com", "https://*.square.com"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  // HSTS, X-Content-Type-Options, X-Frame-Options=DENY, Referrer-Policy default-on
+  crossOriginEmbedderPolicy: false,  // we embed Google Maps which doesn't send CORP
+  crossOriginResourcePolicy: { policy: 'cross-origin' },  // logos may be hotlinked
+}));
 
 // ─── View Engine ──────────────────────────────────────────────────────────────
 app.set('view engine', 'ejs');
@@ -27,7 +58,12 @@ app.use(session({
   secret: config.session.secret,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 8 * 60 * 60 * 1000 }, // 8 hours
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',  // requires trust proxy + HTTPS
+    sameSite: 'lax',
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours
+  },
 }));
 
 // ─── CSRF ────────────────────────────────────────────────────────────────────
@@ -81,9 +117,15 @@ app.use((req, res) => {
 });
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
+// Always log full stack server-side. Show generic message in production so we
+// don't leak internals (paths, query fragments, library names) to visitors.
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).render('store/error', { title: 'Server Error', error: err.message });
+  const isProd = process.env.NODE_ENV === 'production';
+  const userMessage = isProd
+    ? 'Something went wrong. Please try again, or contact us if the problem persists.'
+    : (err.message || 'Server error');
+  res.status(500).render('store/error', { title: 'Server Error', error: userMessage });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

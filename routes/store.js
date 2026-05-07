@@ -1,8 +1,19 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router  = express.Router();
 const db      = require('../db');
 const siteSettings = require('../site-settings');
 const { sendContactEmail } = require('../mailer');
+
+// 20 tracking lookups per IP per minute. Real customers retry once or twice;
+// scrapers iterating order ids cap out fast.
+const trackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many lookups. Please slow down and try again in a minute.',
+});
 
 // Cart lives in session: req.session.cart = [{ itemId, itemName, colorId, colorName, sizeId, sizeName, quantity, unitPrice, personalizationName, personalizationNumber, storeId, storeSlug }]
 
@@ -43,10 +54,15 @@ router.get('/privacy', (req, res) => {
 // Customer enters email + order #. We never reveal which half is wrong, just
 // "no order found matching those details." Reduces enumeration risk.
 router.get('/track', (req, res) => {
-  res.render('store/track', { title: 'Track Your Order', cart: getCart(req), result: null, query: { order_id: '', email: '' } });
+  res.render('store/track', {
+    title: 'Track Your Order',
+    cart: getCart(req),
+    result: null,
+    query: { order_id: req.query.order_id || '', email: '' },
+  });
 });
 
-router.post('/track', async (req, res) => {
+router.post('/track', trackLimiter, async (req, res) => {
   const orderId = parseInt(req.body.order_id);
   const email = (req.body.email || '').trim().toLowerCase();
 
@@ -99,9 +115,12 @@ router.post('/contact', async (req, res) => {
     return res.redirect('/contact');
   }
 
-  const name    = (req.body.name    || '').trim().slice(0, 200);
-  const email   = (req.body.email   || '').trim().slice(0, 200);
-  const message = (req.body.message || '').trim().slice(0, 5000);
+  // Strip CR/LF from header-bound fields to defeat any SMTP header-injection
+  // attempts that would slip past nodemailer's own validation.
+  const stripCRLF = (s) => String(s || '').replace(/[\r\n]+/g, ' ');
+  const name    = stripCRLF(req.body.name).trim().slice(0, 200);
+  const email   = stripCRLF(req.body.email).trim().slice(0, 200);
+  const message = String(req.body.message || '').trim().slice(0, 5000);
 
   if (!name || !email || !message) {
     req.session.flash = { type: 'error', message: 'Please fill in all fields.' };
@@ -190,15 +209,23 @@ router.post('/cart/add', async (req, res) => {
     return res.redirect(`/store/${it.store_slug}`);
   }
 
+  // Constrain color/size to belong to this item/store, so a customer can't
+  // attach a color from a different item or borrow a cheaper size's price modifier.
   let colorName = '';
   if (color_id) {
-    const color = await db.query('SELECT * FROM item_colors WHERE id = $1', [color_id]);
+    const color = await db.query(
+      'SELECT * FROM item_colors WHERE id = $1 AND item_id = $2',
+      [color_id, it.id]
+    );
     if (color.rows[0]) colorName = color.rows[0].name;
   }
 
   let sizeName = '', sizeModifier = 0;
   if (size_id) {
-    const size = await db.query('SELECT * FROM store_sizes WHERE id = $1', [size_id]);
+    const size = await db.query(
+      'SELECT * FROM store_sizes WHERE id = $1 AND store_id = $2',
+      [size_id, it.sid]
+    );
     if (size.rows[0]) {
       sizeName = size.rows[0].name;
       sizeModifier = parseFloat(size.rows[0].price_modifier) || 0;
@@ -218,6 +245,13 @@ router.post('/cart/add', async (req, res) => {
   }
   unitPrice += personalizationTotal;
 
+  // Clamp quantity to [1, 50] — prevents negative-quantity price tampering and
+  // unreasonably large submissions. Also limit personalization length here so
+  // session-stored cart can't be ballooned to crash sessions.
+  const safeQty = Math.max(1, Math.min(parseInt(quantity) || 1, 50));
+  const safePName = String(personalization_name || '').slice(0, 100);
+  const safePNumber = String(personalization_number || '').slice(0, 20);
+
   const cart = getCart(req);
   cart.push({
     itemId: it.id,
@@ -226,10 +260,10 @@ router.post('/cart/add', async (req, res) => {
     colorName,
     sizeId: size_id || null,
     sizeName,
-    quantity: parseInt(quantity) || 1,
+    quantity: safeQty,
     unitPrice,
-    personalizationName: personalization_name || '',
-    personalizationNumber: personalization_number || '',
+    personalizationName: safePName,
+    personalizationNumber: safePNumber,
     storeId: it.sid,
     storeSlug: it.store_slug,
     taxRate: parseFloat(it.tax_rate) || 0,

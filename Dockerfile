@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY app.js config.js db.js csrf.js site-settings.js mailer.js order-status.js square-config.js ./
+COPY app.js config.js db.js csrf.js site-settings.js mailer.js order-status.js square-config.js sanitize.js ./
 COPY routes ./routes
 COPY views ./views
 COPY public ./public

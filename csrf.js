@@ -29,7 +29,15 @@ function csrfCheck(req, res, next) {
 
 function isValid(req) {
   const submitted = (req.body && req.body._csrf) || req.get('x-csrf-token');
-  return submitted && req.session.csrfToken && submitted === req.session.csrfToken;
+  const expected = req.session.csrfToken;
+  if (!submitted || !expected) return false;
+  // Constant-time compare. Lengths must match for timingSafeEqual.
+  if (submitted.length !== expected.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(submitted), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 function reject(res) {

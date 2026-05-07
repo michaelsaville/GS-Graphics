@@ -92,10 +92,10 @@ async function sendCustomerStatusEmail({ to, customerName, orderId, statusInfo, 
   const greeting = customerName ? `Hi ${customerName},` : 'Hi,';
   const noteBlock = note ? `\n\nNote from ${brandName}: ${note}` : '';
   const text = `${greeting}\n\nYour order #${orderId} status is now: ${statusInfo.label}.${noteBlock}\n\nThanks,\n${brandName}`;
-  const html = `<p>${greeting}</p>
-<p>Your order <strong>#${orderId}</strong> status is now: <strong>${statusInfo.label}</strong>.</p>
-${note ? `<p><em>Note from ${brandName}:</em> ${escapeHtml(note)}</p>` : ''}
-<p>Thanks,<br>${brandName}</p>`;
+  const html = `<p>Hi ${escapeHtml(customerName || '')},</p>
+<p>Your order <strong>#${orderId}</strong> status is now: <strong>${escapeHtml(statusInfo.label)}</strong>.</p>
+${note ? `<p><em>Note from ${escapeHtml(brandName)}:</em> ${escapeHtml(note)}</p>` : ''}
+<p>Thanks,<br>${escapeHtml(brandName)}</p>`;
 
   try {
     await transporterFor(cfg).sendMail({ from: fromHeader(cfg, brandName), to, subject, text, html });
@@ -110,7 +110,8 @@ async function sendCustomerOrderReceipt({ to, customerName, orderId, lineItems, 
   const cfg = await getSmtpConfig();
   if (!cfg) return { status: 'skipped', error: 'SMTP not configured' };
 
-  const subject = `Order #${orderId} confirmed — ${brandName}`;
+  const safeOrderId = parseInt(orderId);
+  const subject = `Order #${safeOrderId} confirmed — ${brandName}`;
   const lines = lineItems.map(li =>
     `  ${li.quantity}× ${li.item_name}${li.color_name ? ' / ' + li.color_name : ''}${li.size_name ? ' (' + li.size_name + ')' : ''}` +
     `${li.personalization_name || li.personalization_number ? ' [' + (li.personalization_name || '') + (li.personalization_number ? ' #' + li.personalization_number : '') + ']' : ''}` +
@@ -152,7 +153,7 @@ ${lineItems.map(li => `    <tr>
   <strong>Total: $${total.toFixed(2)}</strong>
 </p>
 <p>You can <a href="${baseUrl}/track">track your order here</a>.</p>
-<p>Thanks,<br>${brandName}</p>`;
+<p>Thanks,<br>${escapeHtml(brandName)}</p>`;
 
   try {
     await transporterFor(cfg).sendMail({ from: fromHeader(cfg, brandName), to, subject, text, html });

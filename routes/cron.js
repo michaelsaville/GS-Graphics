@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto  = require('crypto');
 const router  = express.Router();
 const db      = require('../db');
 const config  = require('../config');
@@ -12,7 +13,11 @@ async function requireCronSecret(req, res, next) {
   const expected = settings.site.cronSecret || process.env.CRON_SECRET || '';
   if (!expected) return res.status(503).json({ error: 'Cron secret not configured' });
   const got = (req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (got !== expected) return res.status(401).json({ error: 'Unauthorized' });
+  // Constant-time compare to avoid timing leak.
+  if (got.length !== expected.length) return res.status(401).json({ error: 'Unauthorized' });
+  let match = false;
+  try { match = crypto.timingSafeEqual(Buffer.from(got), Buffer.from(expected)); } catch { match = false; }
+  if (!match) return res.status(401).json({ error: 'Unauthorized' });
   next();
 }
 

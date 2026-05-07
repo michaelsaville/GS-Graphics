@@ -3,6 +3,29 @@
 <h2 class="mb-2">Site Settings</h2>
 <p class="text-muted mb-2">Branding, company information, and editable copy. Changes take effect within 30 seconds.</p>
 
+<details class="card" style="margin-bottom:16px;">
+  <summary style="cursor:pointer;font-weight:600;">Change admin password</summary>
+  <form method="POST" action="/admin/settings/password" autocomplete="off" style="margin-top:12px;">
+    <%- include('../partials/csrf') %>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="current_password">Current password</label>
+        <input type="password" name="current_password" id="current_password" class="form-control" required autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label for="new_password">New password</label>
+        <input type="password" name="new_password" id="new_password" class="form-control" required minlength="8" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label for="confirm_password">Confirm new password</label>
+        <input type="password" name="confirm_password" id="confirm_password" class="form-control" required minlength="8" autocomplete="new-password">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+    <small class="text-muted" style="margin-left:8px;">Stored as bcrypt hash in the database. Overrides .env value when set.</small>
+  </form>
+</details>
+
 <div class="card">
   <form method="POST" action="/admin/settings" enctype="multipart/form-data">
     <%- include('../partials/csrf') %>
@@ -192,6 +215,20 @@
         <span id="square_test_result" style="font-size:0.9rem;"></span>
       </div>
       <div id="square_locations_picker" style="margin-top:8px;display:none;"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Pickup Reminders</h3>
+    <p class="text-muted mb-2">Hours before a pickup event to email each customer with an open order. Cron runs daily — see crontab on the server.</p>
+    <div class="form-group">
+      <label for="pickup_reminder_hours">Lead time (hours)</label>
+      <input type="number" name="pickup_reminder_hours" id="pickup_reminder_hours" class="form-control"
+             value="<%= settings.pickup_reminder_hours || 24 %>" min="1" max="168" style="max-width:140px;">
+    </div>
+    <div class="form-group">
+      <label>Cron secret <small class="text-muted">(used by the scheduled task in crontab)</small></label>
+      <code style="display:block;padding:8px;background:#f5f5f5;border-radius:4px;font-size:0.85rem;word-break:break-all;"><%= settings.cron_secret %></code>
     </div>
 
     <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">

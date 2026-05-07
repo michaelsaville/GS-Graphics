@@ -70,6 +70,37 @@
   </form>
 </div>
 
+<% if (order.status !== 'refunded' && order.status !== 'cancelled' && order.square_payment_id) {
+  const isSandbox = String(order.square_payment_id).startsWith('sandbox-');
+%>
+<div class="card" style="border-left:4px solid #d4a017;">
+  <h3 class="card-title">Process Refund</h3>
+  <p class="text-muted mb-2">
+    Refund the full order total ($<%= parseFloat(order.total_amount).toFixed(2) %>) via Square.
+    <% if (isSandbox) { %>
+      <strong>This is a sandbox order</strong> — the refund will be flagged in our records but no Square API call will be made.
+    <% } else { %>
+      Issues a real refund through Square's <code>refundsApi</code> using payment ID <code><%= order.square_payment_id.slice(0, 12) %>…</code>.
+    <% } %>
+  </p>
+  <form method="POST" action="/admin/orders/<%= order.id %>/refund"
+        onsubmit="return confirm('Issue a $<%= parseFloat(order.total_amount).toFixed(2) %> refund for order #<%= order.id %>?<%= isSandbox ? ' (sandbox flag only)' : '' %>');">
+    <%- include('../partials/csrf') %>
+    <button type="submit" class="btn btn-danger">Refund $<%= parseFloat(order.total_amount).toFixed(2) %></button>
+  </form>
+</div>
+<% } %>
+
+<% if (order.status === 'refunded' && order.refunded_at) { %>
+  <div class="card" style="background:#f5f5f5;">
+    <h3 class="card-title">Refund Issued</h3>
+    <p>
+      $<%= parseFloat(order.refund_amount || order.total_amount).toFixed(2) %> refunded on <%= new Date(order.refunded_at).toLocaleString() %>.
+      <% if (order.refund_id) { %><br>Square refund ID: <code><%= order.refund_id %></code><% } %>
+    </p>
+  </div>
+<% } %>
+
 <div class="card">
   <h3 class="card-title">Add a note (no status change)</h3>
   <form method="POST" action="/admin/orders/<%= order.id %>/note">

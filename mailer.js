@@ -192,6 +192,44 @@ Total: <strong>$${total.toFixed(2)}</strong> (${lineCount} line${lineCount === 1
   }
 }
 
+// Pickup reminder — sent when a pickup event is approaching.
+async function sendPickupReminder({ to, customerName, orderId, brandName, baseUrl, eventName, eventDate, eventTime, eventLocation }) {
+  if (!to) return { status: 'skipped', error: 'No customer email' };
+  const cfg = await getSmtpConfig();
+  if (!cfg) return { status: 'skipped', error: 'SMTP not configured' };
+
+  const niceDate = new Date(eventDate).toLocaleDateString();
+  const subject = `Reminder: pickup for order #${orderId} — ${niceDate}`;
+  const text = `Hi ${customerName || ''},
+
+This is a reminder that your order #${orderId} is scheduled for pickup:
+
+  ${eventName}
+  ${niceDate}${eventTime ? ' ' + eventTime : ''}${eventLocation ? '\n  ' + eventLocation : ''}
+
+Track your order: ${baseUrl}/track
+
+See you soon,
+${brandName}`;
+
+  const html = `<p>Hi ${escapeHtml(customerName || '')},</p>
+<p>This is a reminder that your order <strong>#${orderId}</strong> is scheduled for pickup:</p>
+<div style="background:#fffde7;padding:12px;border-radius:4px;">
+  <strong>${escapeHtml(eventName)}</strong><br>
+  ${escapeHtml(niceDate)}${eventTime ? ' ' + escapeHtml(eventTime) : ''}
+  ${eventLocation ? '<br>' + escapeHtml(eventLocation) : ''}
+</div>
+<p><a href="${baseUrl}/track">Track your order &rarr;</a></p>
+<p>See you soon,<br>${brandName}</p>`;
+
+  try {
+    await transporterFor(cfg).sendMail({ from: fromHeader(cfg, brandName), to, subject, text, html });
+    return { status: 'sent', error: '' };
+  } catch (err) {
+    return { status: 'failed', error: err.message || String(err) };
+  }
+}
+
 // One-off test send used by the admin "Send test" button.
 async function sendTestEmail({ to, brandName }) {
   if (!to) return { status: 'failed', error: 'Recipient required' };
@@ -215,5 +253,6 @@ async function sendTestEmail({ to, brandName }) {
 
 module.exports = {
   sendContactEmail, sendCustomerStatusEmail, sendCustomerOrderReceipt,
-  sendOperatorOrderAlert, sendTestEmail, smtpConfigured, getSmtpConfig,
+  sendOperatorOrderAlert, sendPickupReminder, sendTestEmail,
+  smtpConfigured, getSmtpConfig,
 };

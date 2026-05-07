@@ -35,8 +35,12 @@ router.get('/login', (req, res) => {
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  if (username === config.admin.username && config.admin.passwordHash) {
-    const match = await bcrypt.compare(password, config.admin.passwordHash);
+  // DB hash takes precedence over env hash, so /admin/settings password changes work.
+  const settings = await siteSettings.load();
+  const effectiveHash = settings.site.adminPasswordHash || config.admin.passwordHash;
+
+  if (username === config.admin.username && effectiveHash) {
+    const match = await bcrypt.compare(password, effectiveHash);
     if (match) {
       req.session.adminLoggedIn = true;
       return res.redirect('/admin');
@@ -634,6 +638,85 @@ router.post('/orders/:id/items/:lineId/delete', requireAdmin, async (req, res) =
   res.redirect(`/admin/orders/${orderId}`);
 });
 
+// Process a Square refund for the original payment. Full-refund only (partial
+// refunds add complexity we don't need yet). Sandbox-shortcircuit orders are
+// flagged and refunded without a Square API call.
+router.post('/orders/:id/refund', requireAdmin, async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  const cur = await db.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+  if (!cur.rows[0]) return res.redirect('/admin/orders');
+  const order = cur.rows[0];
+
+  if (order.status === 'refunded') {
+    req.session.flash = { type: 'error', message: 'Order is already refunded.' };
+    return res.redirect(`/admin/orders/${orderId}`);
+  }
+
+  const paymentId = order.square_payment_id || '';
+  const isSandbox = paymentId.startsWith('sandbox-');
+
+  let refundId = '';
+  let logNote = '';
+
+  if (isSandbox) {
+    // No real charge ever happened; just flag it
+    refundId = `sandbox-refund-${Date.now()}`;
+    logNote = 'Sandbox order — flagged refunded (no Square API call)';
+  } else if (!paymentId) {
+    req.session.flash = { type: 'error', message: 'Cannot process refund — no Square payment ID on this order. If the customer paid through another channel, set status to "Refunded" manually.' };
+    return res.redirect(`/admin/orders/${orderId}`);
+  } else {
+    try {
+      const square = await getSquareConfig();
+      const { Client, Environment } = require('square');
+      const client = new Client({
+        accessToken: square.accessToken,
+        environment: square.environment === 'production' ? Environment.Production : Environment.Sandbox,
+      });
+      const { result } = await client.refundsApi.refundPayment({
+        idempotencyKey: `refund-${orderId}-${Date.now()}`,
+        paymentId,
+        amountMoney: {
+          amount: BigInt(Math.round(parseFloat(order.total_amount) * 100)),
+          currency: 'USD',
+        },
+        reason: `Order #${orderId} refund via admin`,
+      });
+      refundId = (result.refund && result.refund.id) || '';
+      logNote = `Square refund issued: ${refundId} for $${parseFloat(order.total_amount).toFixed(2)}`;
+    } catch (err) {
+      const detail = (err.errors && err.errors[0] && err.errors[0].detail) || err.message || String(err);
+      req.session.flash = { type: 'error', message: `Square refund failed: ${detail}. Order status NOT changed. Either retry or set status manually.` };
+      return res.redirect(`/admin/orders/${orderId}`);
+    }
+  }
+
+  await db.query(
+    'UPDATE orders SET status = $1, refund_id = $2, refund_amount = $3, refunded_at = NOW() WHERE id = $4',
+    ['refunded', refundId, order.total_amount, orderId]
+  );
+  await db.query(
+    'INSERT INTO order_status_log (order_id, from_status, to_status, note) VALUES ($1, $2, $3, $4)',
+    [orderId, order.status, 'refunded', logNote]
+  );
+
+  // Notify customer (best-effort)
+  if (order.customer_email) {
+    const settings = await siteSettings.load();
+    sendCustomerStatusEmail({
+      to: order.customer_email,
+      customerName: order.customer_name,
+      orderId,
+      statusInfo: orderStatus.info('refunded'),
+      brandName: settings.brand.name,
+      note: `Refund of $${parseFloat(order.total_amount).toFixed(2)} has been processed.`,
+    }).catch(() => {});
+  }
+
+  req.session.flash = { type: 'success', message: logNote };
+  res.redirect(`/admin/orders/${orderId}`);
+});
+
 // Quick "mark fulfilled" button — used from the pickup roster. Logs the change
 // and bounces back to wherever the operator was (?return=...).
 router.post('/orders/:id/fulfill', requireAdmin, async (req, res) => {
@@ -965,6 +1048,39 @@ router.get('/contact-submissions', requireAdmin, async (req, res) => {
   res.render('admin/contact-submissions', { title: 'Contact Submissions', submissions: result.rows });
 });
 
+router.post('/settings/password', requireAdmin, async (req, res) => {
+  const current = req.body.current_password || '';
+  const next1   = req.body.new_password || '';
+  const next2   = req.body.confirm_password || '';
+
+  if (!current || !next1 || !next2) {
+    req.session.flash = { type: 'error', message: 'All three fields are required.' };
+    return res.redirect('/admin/settings');
+  }
+  if (next1 !== next2) {
+    req.session.flash = { type: 'error', message: 'New passwords do not match.' };
+    return res.redirect('/admin/settings');
+  }
+  if (next1.length < 8) {
+    req.session.flash = { type: 'error', message: 'New password must be at least 8 characters.' };
+    return res.redirect('/admin/settings');
+  }
+
+  const settings = await siteSettings.load();
+  const effectiveHash = settings.site.adminPasswordHash || config.admin.passwordHash;
+  const match = effectiveHash ? await bcrypt.compare(current, effectiveHash) : false;
+  if (!match) {
+    req.session.flash = { type: 'error', message: 'Current password is incorrect.' };
+    return res.redirect('/admin/settings');
+  }
+
+  const newHash = await bcrypt.hash(next1, 10);
+  await db.query('UPDATE site_settings SET admin_password_hash = $1 WHERE id = 1', [newHash]);
+  siteSettings.invalidate();
+  req.session.flash = { type: 'success', message: 'Password changed.' };
+  res.redirect('/admin/settings');
+});
+
 // JSON endpoint for the "Test connection" Square button.
 // Lists locations using the currently saved access token + environment.
 router.post('/settings/test-square', requireAdmin, async (req, res) => {
@@ -1015,6 +1131,7 @@ router.post('/settings', requireAdmin, upload.single('logo'), csrfCheck, async (
     maintenance_enabled, maintenance_message,
     smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, smtp_secure,
     square_environment, square_access_token, square_location_id,
+    pickup_reminder_hours,
     clear_logo,
   } = req.body;
 
@@ -1043,6 +1160,7 @@ router.post('/settings', requireAdmin, upload.single('logo'), csrfCheck, async (
        smtp_host = $14, smtp_port = $15, smtp_user = $16, smtp_pass = $17,
        smtp_from = $18, smtp_secure = $19,
        square_environment = $20, square_access_token = $21, square_location_id = $22,
+       pickup_reminder_hours = $23,
        updated_at = NOW()
      WHERE id = 1`,
     [
@@ -1068,6 +1186,7 @@ router.post('/settings', requireAdmin, upload.single('logo'), csrfCheck, async (
       square_environment === 'production' ? 'production' : 'sandbox',
       finalSquareToken,
       square_location_id || '',
+      Math.max(1, Math.min(parseInt(pickup_reminder_hours) || 24, 168)),
     ]
   );
 

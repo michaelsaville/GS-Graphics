@@ -70,9 +70,10 @@ app.use((req, res, next) => {
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use('/admin',    require('./routes/admin'));
-app.use('/checkout', require('./routes/checkout'));
-app.use('/',         require('./routes/store'));
+app.use('/admin',          require('./routes/admin'));
+app.use('/checkout',       require('./routes/checkout'));
+app.use('/api/cron',       require('./routes/cron'));
+app.use('/',               require('./routes/store'));
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

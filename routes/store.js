@@ -85,6 +85,20 @@ router.get('/contact', (req, res) => {
 });
 
 router.post('/contact', async (req, res) => {
+  // Honeypot: real users can't see this field. Bots that bulk-fill trip it.
+  // Silently accept (return success) so they don't realize they were filtered.
+  if (req.body.website && String(req.body.website).trim() !== '') {
+    return res.render('store/contact', { title: 'Thanks', cart: getCart(req), submitted: true });
+  }
+
+  // Per-session rate limit: 1 submission per 60 seconds.
+  const now = Date.now();
+  const last = req.session.lastContactSubmitAt || 0;
+  if (now - last < 60_000) {
+    req.session.flash = { type: 'error', message: 'Please wait a moment before sending another message.' };
+    return res.redirect('/contact');
+  }
+
   const name    = (req.body.name    || '').trim().slice(0, 200);
   const email   = (req.body.email   || '').trim().slice(0, 200);
   const message = (req.body.message || '').trim().slice(0, 5000);
@@ -93,6 +107,8 @@ router.post('/contact', async (req, res) => {
     req.session.flash = { type: 'error', message: 'Please fill in all fields.' };
     return res.redirect('/contact');
   }
+
+  req.session.lastContactSubmitAt = now;
 
   // Always persist first so nothing is lost regardless of email delivery
   const inserted = await db.query(

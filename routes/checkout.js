@@ -251,7 +251,12 @@ router.get('/callback', async (req, res) => {
     const squareState = result.order && result.order.state;
 
     if (squareState === 'COMPLETED') {
-      await db.query('UPDATE orders SET status = $1 WHERE id = $2', ['paid', orderId]);
+      // Pull the payment_id off the Order's tenders so we can refund later if needed
+      const paymentId = (result.order.tenders && result.order.tenders[0] && result.order.tenders[0].payment_id) || '';
+      await db.query(
+        'UPDATE orders SET status = $1, square_payment_id = $2 WHERE id = $3',
+        ['paid', paymentId, orderId]
+      );
       req.session.cart = [];
       sendOrderNotifications(orderId);
     }

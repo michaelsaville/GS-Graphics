@@ -31,6 +31,9 @@ async function load() {
       contactRecipient:  row.contact_recipient_email || '',
       maintenanceEnabled: Boolean(row.maintenance_enabled),
       maintenanceMessage: row.maintenance_message || '',
+      pickupReminderHours: parseInt(row.pickup_reminder_hours) || 24,
+      cronSecret: row.cron_secret || '',
+      adminPasswordHash: row.admin_password_hash || '',
     },
     smtp: {
       host:   row.smtp_host   || '',

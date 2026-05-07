@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const EXEMPT_PREFIXES = ['/webhooks/'];
+const EXEMPT_PREFIXES = ['/webhooks/', '/api/cron/'];
 
 // App-level middleware: initializes token + enforces it for non-multipart requests.
 // Multipart requests are deferred — req.body isn't populated until multer runs,

@@ -1,0 +1,106 @@
+<%- include('../partials/header') %>
+
+<h2 class="mb-2">Checkout</h2>
+
+<div class="grid grid-2">
+  <div>
+    <div class="card">
+      <h3 class="card-title">Contact Information</h3>
+      <form method="POST" action="/checkout" id="checkout-form">
+        <%- include('../partials/csrf') %>
+        <div class="form-group">
+          <label for="customer_name">Full Name *</label>
+          <input type="text" name="customer_name" id="customer_name" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="customer_email">Email *</label>
+            <input type="email" name="customer_email" id="customer_email" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="customer_phone">Phone</label>
+            <input type="tel" name="customer_phone" id="customer_phone" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="customer_cell">Cell Phone</label>
+          <input type="tel" name="customer_cell" id="customer_cell" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="customer_address">Address</label>
+          <input type="text" name="customer_address" id="customer_address" class="form-control">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="customer_city">City</label>
+            <input type="text" name="customer_city" id="customer_city" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="customer_state">State</label>
+            <input type="text" name="customer_state" id="customer_state" class="form-control" maxlength="2" placeholder="e.g. OH">
+          </div>
+          <div class="form-group">
+            <label for="customer_zip">Zip</label>
+            <input type="text" name="customer_zip" id="customer_zip" class="form-control" maxlength="10">
+          </div>
+        </div>
+
+        <% if (events.length > 0) { %>
+          <div class="form-group">
+            <label for="pickup_event_id">Pickup Event *</label>
+            <select name="pickup_event_id" id="pickup_event_id" class="form-control" required>
+              <option value="">— Select Pickup —</option>
+              <% for (const e of events) { %>
+                <option value="<%= e.id %>">
+                  <%= e.name %> — <%= new Date(e.event_date).toLocaleDateString() %><%= e.event_time ? ' ' + e.event_time : '' %><%= e.location ? ' @ ' + e.location : '' %>
+                </option>
+              <% } %>
+            </select>
+          </div>
+        <% } %>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;font-size:1rem;padding:14px;">
+          Place Order — $<%= total.toFixed(2) %>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3 class="card-title">Order Summary</h3>
+      <% for (const c of cart) { %>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+          <div>
+            <strong><%= c.itemName %></strong>
+            <% if (c.colorName || c.sizeName) { %>
+              <br><small class="text-muted"><%= [c.colorName, c.sizeName].filter(Boolean).join(' / ') %></small>
+            <% } %>
+            <% if (c.personalizationName || c.personalizationNumber) { %>
+              <br><small class="text-muted">Personalization: <%= c.personalizationName || '' %> <%= c.personalizationNumber ? '#' + c.personalizationNumber : '' %></small>
+            <% } %>
+          </div>
+          <div style="white-space:nowrap;">
+            <span class="text-muted">x<%= c.quantity %></span>
+            $<%= (c.unitPrice * c.quantity).toFixed(2) %>
+          </div>
+        </div>
+      <% } %>
+      <div style="border-top:2px solid var(--brand-color);margin-top:12px;padding-top:12px;text-align:right;">
+        <div>Subtotal: $<%= subtotal.toFixed(2) %></div>
+        <% if (tax > 0) { %>
+          <div class="text-muted">
+            Tax<% if (blendedTaxRate !== null) { %> (<%= (blendedTaxRate * 100).toFixed(2) %>%)<% } %>: $<%= tax.toFixed(2) %>
+          </div>
+        <% } %>
+        <div class="cart-total" style="padding:4px 0;">Total: $<%= total.toFixed(2) %></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

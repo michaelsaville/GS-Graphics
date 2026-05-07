@@ -1,0 +1,72 @@
+<%- include('../../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Sales Tax Report</h2>
+    <a href="/admin/reports" class="text-muted">&larr; All reports</a>
+  </div>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+</div>
+
+<div class="card">
+  <form method="GET" action="/admin/reports/sales-tax" class="d-flex gap-2 align-center">
+    <div class="form-group" style="margin-bottom:0;">
+      <label for="from">From</label>
+      <input type="date" name="from" id="from" class="form-control" value="<%= from %>">
+    </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label for="to">To</label>
+      <input type="date" name="to" id="to" class="form-control" value="<%= to %>">
+    </div>
+    <div style="margin-top:24px;">
+      <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Tax collected, <%= from %> &rarr; <%= to %></h3>
+  <p class="text-muted mb-2">Paid orders only.</p>
+
+  <% if (rows.length === 0) { %>
+    <p class="text-muted">No paid orders in this date range.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Store</th>
+            <th>Tax Rate</th>
+            <th>Orders</th>
+            <th class="text-right">Taxable Subtotal</th>
+            <th class="text-right">Tax Collected</th>
+            <th class="text-right">Gross Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td><strong><%= r.store_name %></strong></td>
+              <td><%= (parseFloat(r.tax_rate) * 100).toFixed(2) %>%</td>
+              <td><%= r.order_count %></td>
+              <td class="text-right">$<%= parseFloat(r.taxable_subtotal).toFixed(2) %></td>
+              <td class="text-right"><strong>$<%= parseFloat(r.tax_collected).toFixed(2) %></strong></td>
+              <td class="text-right">$<%= parseFloat(r.gross_total).toFixed(2) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #333;font-weight:bold;">
+            <td colspan="2">Total</td>
+            <td><%= totals.orders %></td>
+            <td class="text-right">$<%= totals.taxable_subtotal.toFixed(2) %></td>
+            <td class="text-right">$<%= totals.tax_collected.toFixed(2) %></td>
+            <td class="text-right">$<%= totals.gross_total.toFixed(2) %></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../../partials/admin-footer') %>

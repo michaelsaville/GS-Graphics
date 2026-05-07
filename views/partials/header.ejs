@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title + ' — ' : '' %><%= brand.name %></title>
+  <%
+    const pageTitle = (typeof title !== 'undefined' && title) ? `${title} — ${brand.name}` : brand.name;
+    const desc = (typeof description !== 'undefined' && description)
+                 ? description
+                 : (brand.tagline || `${brand.name} — order online.`);
+    const ogImage = brand.logoUrl ? `${baseUrl}${brand.logoUrl}` : '';
+  %>
+  <meta name="description" content="<%= desc %>">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="<%= pageTitle %>">
+  <meta property="og:description" content="<%= desc %>">
+  <meta property="og:url" content="<%= baseUrl %><%= typeof currentPath !== 'undefined' ? currentPath : '' %>">
+  <% if (ogImage) { %><meta property="og:image" content="<%= ogImage %>"><% } %>
+  <meta name="twitter:card" content="<%= ogImage ? 'summary_large_image' : 'summary' %>">
+
+  <link rel="stylesheet" href="/css/style.css">
+  <% if (brand.color) { %>
+  <style>:root { --brand-color: <%= brand.color %>; }</style>
+  <% } %>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div>
+        <h1><a href="/" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+          <% if (brand.logoUrl) { %>
+            <img src="<%= brand.logoUrl %>" alt="<%= brand.name %>" style="height:40px;max-width:200px;object-fit:contain;">
+          <% } else { %>
+            <%= brand.name %>
+          <% } %>
+        </a></h1>
+        <% if (brand.tagline) { %><div class="tagline"><%= brand.tagline %></div><% } %>
+      </div>
+      <nav>
+        <a href="/">Stores</a>
+        <a href="/contact">Contact</a>
+        <% if (typeof cart !== 'undefined' && cart && cart.length) { %>
+          <a href="/cart">Cart <span class="cart-badge"><%= cart.length %></span></a>
+        <% } %>
+        <% if (adminLoggedIn) { %><a href="/admin">Admin</a><% } %>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+      <% if (flash) { %>
+        <div class="flash flash-<%= flash.type || 'info' %>"><%= flash.message %></div>
+      <% } %>

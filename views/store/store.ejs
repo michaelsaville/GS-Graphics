@@ -1,0 +1,58 @@
+<%- include('../partials/header') %>
+
+<div class="mb-2">
+  <a href="/" class="text-muted">&larr; All Stores</a>
+</div>
+
+<div class="mb-2">
+  <h2><%= store.name %></h2>
+  <% if (store.description) { %><p class="text-muted"><%= store.description %></p><% } %>
+
+  <% if (store.orders_close_at) {
+    const closeAt = new Date(store.orders_close_at);
+    const now = new Date();
+    const open = now < closeAt;
+  %>
+    <% if (open) { %>
+      <div class="card" style="background:#fffde7;border-color:#fff9c4;padding:8px 12px;margin-top:8px;">
+        <strong>Orders close:</strong> <%= closeAt.toLocaleString() %>
+      </div>
+    <% } else { %>
+      <div class="card flash flash-error" style="margin-top:8px;">
+        <strong>Orders are closed.</strong>
+        <% if (store.order_deadline_message) { %><br><%= store.order_deadline_message %><% } %>
+      </div>
+    <% } %>
+  <% } %>
+</div>
+
+<% if (items.length === 0) { %>
+  <div class="card text-center text-muted">No items available in this store yet.</div>
+<% } else { %>
+  <div class="grid grid-3">
+    <% for (const item of items) { %>
+      <a href="/store/<%= store.slug %>/<%= item.id %>" class="item-card" style="text-decoration:none;color:inherit;">
+        <% if (item.image_url) { %>
+          <img src="<%= item.image_url %>" alt="<%= item.name %>" class="item-card-img">
+        <% } else { %>
+          <div class="item-card-img" style="display:flex;align-items:center;justify-content:center;color:#ccc;font-size:1.5rem;">
+            No Image
+          </div>
+        <% } %>
+        <div class="item-card-body">
+          <h3><%= item.name %></h3>
+          <div class="item-price">$<%= parseFloat(item.base_price).toFixed(2) %></div>
+          <% if (item.personalization_enabled) { %>
+            <small class="text-muted">Personalization available<%
+              const parts = [];
+              if (parseFloat(store.personalization_name_price) > 0) parts.push('Name +$' + parseFloat(store.personalization_name_price).toFixed(2));
+              if (parseFloat(store.personalization_number_price) > 0) parts.push('Number +$' + parseFloat(store.personalization_number_price).toFixed(2));
+              if (parts.length > 0) { %> (<%= parts.join(', ') %>)<% } else { %> (included)<% } %></small>
+          <% } %>
+        </div>
+      </a>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

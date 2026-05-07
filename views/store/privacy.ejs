@@ -1,0 +1,12 @@
+<%- include('../partials/header') %>
+
+<div class="card" style="max-width:800px;margin:0 auto;">
+  <% if (site && site.privacyPolicyHtml) { %>
+    <%- site.privacyPolicyHtml %>
+  <% } else { %>
+    <h2>Privacy Policy</h2>
+    <p class="text-muted">A privacy policy has not been published yet. Please contact us for any privacy-related questions.</p>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

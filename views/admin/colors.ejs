@@ -1,0 +1,56 @@
+<%- include('../partials/admin-header') %>
+
+<div class="mb-2">
+  <h2>Colors — <%= item.name %></h2>
+  <a href="/admin/stores/<%= store.id %>/items" class="text-muted">&larr; Back to items</a>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Add Color</h3>
+  <form method="POST" action="/admin/stores/<%= store.id %>/items/<%= item.id %>/colors">
+    <%- include('../partials/csrf') %>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Color Name</label>
+        <input type="text" name="name" id="name" class="form-control" required placeholder="e.g. Navy Blue">
+      </div>
+      <div class="form-group">
+        <label for="hex_code">Hex Code</label>
+        <input type="color" name="hex_code" id="hex_code" value="#000000" class="form-control" style="height:42px;padding:4px;">
+      </div>
+      <div class="form-group">
+        <label for="sort_order">Order</label>
+        <input type="number" name="sort_order" id="sort_order" class="form-control" value="0">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Add Color</button>
+  </form>
+</div>
+
+<% if (colors.length > 0) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Swatch</th><th>Name</th><th>Hex</th><th>Order</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% for (const c of colors) { %>
+          <tr>
+            <td><span class="color-swatch" style="background:<%= c.hex_code %>"></span></td>
+            <td><%= c.name %></td>
+            <td><code><%= c.hex_code %></code></td>
+            <td><%= c.sort_order %></td>
+            <td>
+              <form method="POST" action="/admin/stores/<%= store.id %>/items/<%= item.id %>/colors/<%= c.id %>/delete" style="display:inline">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+              </form>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

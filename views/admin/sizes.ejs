@@ -1,0 +1,56 @@
+<%- include('../partials/admin-header') %>
+
+<div class="mb-2">
+  <h2>Sizes — <%= store.name %></h2>
+  <a href="/admin/stores" class="text-muted">&larr; Back to stores</a>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Add Size</h3>
+  <form method="POST" action="/admin/stores/<%= store.id %>/sizes">
+    <%- include('../partials/csrf') %>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Size Name</label>
+        <input type="text" name="name" id="name" class="form-control" required placeholder="e.g. XL">
+      </div>
+      <div class="form-group">
+        <label for="price_modifier">Price Modifier ($)</label>
+        <input type="number" name="price_modifier" id="price_modifier" class="form-control" step="0.01" value="0.00"
+               placeholder="e.g. 2.00 for +$2">
+      </div>
+      <div class="form-group">
+        <label for="sort_order">Order</label>
+        <input type="number" name="sort_order" id="sort_order" class="form-control" value="0">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Add Size</button>
+  </form>
+</div>
+
+<% if (sizes.length > 0) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Size</th><th>Price Modifier</th><th>Order</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% for (const s of sizes) { %>
+          <tr>
+            <td><strong><%= s.name %></strong></td>
+            <td><%= parseFloat(s.price_modifier) > 0 ? '+$' + parseFloat(s.price_modifier).toFixed(2) : '—' %></td>
+            <td><%= s.sort_order %></td>
+            <td>
+              <form method="POST" action="/admin/stores/<%= store.id %>/sizes/<%= s.id %>/delete" style="display:inline">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+              </form>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -1,0 +1,70 @@
+<%- include('../partials/header') %>
+
+<div class="grid grid-2">
+  <div>
+    <h2 class="mb-2">Contact Us</h2>
+
+    <% if (submitted) { %>
+      <div class="card flash flash-success">
+        <strong>Thanks — your message has been received.</strong>
+        <p class="mt-1 mb-0">We'll get back to you as soon as possible.</p>
+      </div>
+    <% } else { %>
+      <div class="card">
+        <form method="POST" action="/contact">
+          <%- include('../partials/csrf') %>
+          <div class="form-group">
+            <label for="name">Your Name *</label>
+            <input type="text" name="name" id="name" class="form-control" required maxlength="200">
+          </div>
+          <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" name="email" id="email" class="form-control" required maxlength="200">
+          </div>
+          <div class="form-group">
+            <label for="message">Message *</label>
+            <textarea name="message" id="message" class="form-control" rows="6" required maxlength="5000"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Send Message</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3 class="card-title">Reach Us</h3>
+      <% if (site && site.companyPhone) { %>
+        <p><strong>Phone:</strong> <a href="tel:<%= site.companyPhone.replace(/[^0-9+]/g, '') %>"><%= site.companyPhone %></a></p>
+      <% } %>
+      <% if (site && site.companyEmail) { %>
+        <p><strong>Email:</strong> <a href="mailto:<%= site.companyEmail %>"><%= site.companyEmail %></a></p>
+      <% } %>
+      <% if (site && site.companyAddress) { %>
+        <p>
+          <strong>Address:</strong><br>
+          <a href="https://www.google.com/maps?q=<%= encodeURIComponent(site.companyAddress) %>"
+             target="_blank" rel="noopener noreferrer"
+             title="Open in Google Maps"><%= site.companyAddress %></a>
+        </p>
+      <% } %>
+      <% if (site && site.facebookUrl) { %>
+        <p><a href="<%= site.facebookUrl %>" target="_blank" rel="noopener noreferrer">Find us on Facebook</a></p>
+      <% } %>
+    </div>
+
+    <% if (site && site.companyAddress) { %>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <iframe
+          title="Map to <%= site.companyAddress %>"
+          src="https://maps.google.com/maps?q=<%= encodeURIComponent(site.companyAddress) %>&output=embed"
+          style="width:100%;height:300px;border:0;display:block;"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen></iframe>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

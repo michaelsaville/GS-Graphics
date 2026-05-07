@@ -1,0 +1,69 @@
+<%- include('../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Print Report — <%= store.name %></h2>
+    <a href="/admin/stores" class="text-muted">&larr; Back to stores</a>
+  </div>
+  <div class="d-flex gap-1">
+    <a href="/admin/stores/<%= store.id %>/export" class="btn btn-secondary btn-sm">Export CSV</a>
+    <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Blank Apparel Order Summary</h3>
+  <p class="text-muted mb-2">Aggregate quantities by item, color, and size — this is what you order from your blank vendor.</p>
+  <% if (blanks.length === 0) { %>
+    <p class="text-muted">No paid orders for this store yet.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Color</th><th>Size</th><th>Total Qty</th></tr>
+        </thead>
+        <tbody>
+          <% for (const b of blanks) { %>
+            <tr>
+              <td><%= b.item_name %></td>
+              <td><%= b.color_name || '—' %></td>
+              <td><%= b.size_name || '—' %></td>
+              <td><strong><%= b.total_qty %></strong></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Personalization List</h3>
+  <p class="text-muted mb-2">Items requiring name or number printing.</p>
+  <% if (personalizations.length === 0) { %>
+    <p class="text-muted">No personalizations for this store.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Color</th><th>Size</th><th>Name</th><th>Number</th><th>Qty</th><th>Customer</th></tr>
+        </thead>
+        <tbody>
+          <% for (const p of personalizations) { %>
+            <tr>
+              <td><%= p.item_name %></td>
+              <td><%= p.color_name || '—' %></td>
+              <td><%= p.size_name || '—' %></td>
+              <td><strong><%= p.personalization_name || '—' %></strong></td>
+              <td><strong><%= p.personalization_number || '—' %></strong></td>
+              <td><%= p.quantity %></td>
+              <td><%= p.customer_name %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/admin-footer') %>

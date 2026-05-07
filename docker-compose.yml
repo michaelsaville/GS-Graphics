@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    container_name: gs-graphics-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:?DB_USER must be set in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME must be set in .env}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - gs_graphics_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: gs-graphics-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      NODE_ENV: production
+      PORT: 3400
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # nginx on 100.91.194.83 reverse-proxies https://gsgraphics.pcc2k.com → :3400
+      - "3400:3400"
+    volumes:
+      - gs_graphics_uploads:/app/public/uploads
+
+volumes:
+  gs_graphics_pgdata:
+  gs_graphics_uploads:

@@ -1,0 +1,122 @@
+<%- include('../partials/admin-header') %>
+
+<h2 class="mb-2">Orders</h2>
+
+<div class="card">
+  <form method="GET" action="/admin/orders">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="store_id">Store</label>
+        <select name="store_id" id="store_id" class="form-control">
+          <option value="">All</option>
+          <% for (const s of stores) { %>
+            <option value="<%= s.id %>" <%= String(filters.store_id) === String(s.id) ? 'selected' : '' %>><%= s.name %></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="status">Status</label>
+        <select name="status" id="status" class="form-control">
+          <option value="">All</option>
+          <% for (const s of orderStatus.STATUSES) { %>
+            <option value="<%= s.value %>" <%= filters.status === s.value ? 'selected' : '' %>><%= s.label %></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label for="q">Search</label>
+        <input type="text" name="q" id="q" class="form-control" value="<%= filters.q %>" placeholder="customer name or email">
+      </div>
+      <div class="form-group">
+        <label for="from">From</label>
+        <input type="date" name="from" id="from" class="form-control" value="<%= filters.from %>">
+      </div>
+      <div class="form-group">
+        <label for="to">To</label>
+        <input type="date" name="to" id="to" class="form-control" value="<%= filters.to %>">
+      </div>
+    </div>
+    <div class="d-flex gap-1">
+      <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+      <a href="/admin/orders" class="btn btn-secondary btn-sm">Clear</a>
+    </div>
+  </form>
+</div>
+
+<% if (orders.length === 0) { %>
+  <div class="card text-center text-muted">No orders match these filters.</div>
+<% } else { %>
+  <form method="POST" action="/admin/orders/bulk-status" id="bulk-form">
+    <%- include('../partials/csrf') %>
+
+    <div class="card" style="position:sticky;top:0;z-index:10;background:#f5f5f5;display:none;" id="bulk-bar">
+      <div class="d-flex align-center gap-2">
+        <strong id="bulk-count">0</strong> selected
+        <select name="status" class="form-control" style="max-width:240px;" required>
+          <option value="">Move to status…</option>
+          <% for (const s of orderStatus.MANUAL_CHOICES) { const i = orderStatus.info(s); %>
+            <option value="<%= s %>"><%= i.label %></option>
+          <% } %>
+        </select>
+        <label style="display:inline-flex;align-items:center;gap:6px;">
+          <input type="checkbox" name="notify_customer">
+          <span>Notify customers</span>
+        </label>
+        <button type="submit" class="btn btn-primary btn-sm">Apply to selected</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30px;"><input type="checkbox" id="select-all"></th>
+            <th>#</th>
+            <th>Customer</th>
+            <th>Store</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (const o of orders) { const oi = orderStatus.info(o.status); %>
+            <tr>
+              <td><input type="checkbox" name="order_ids" value="<%= o.id %>" class="row-check"></td>
+              <td><%= o.id %></td>
+              <td>
+                <strong><%= o.customer_name %></strong>
+                <% if (o.customer_email) { %><br><small class="text-muted"><%= o.customer_email %></small><% } %>
+              </td>
+              <td><%= o.store_name || '—' %></td>
+              <td>$<%= parseFloat(o.total_amount).toFixed(2) %></td>
+              <td><span class="badge badge-<%= oi.tone %>"><%= oi.label %></span></td>
+              <td><%= new Date(o.created_at).toLocaleDateString() %></td>
+              <td><a href="/admin/orders/<%= o.id %>" class="btn btn-secondary btn-sm">View</a></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </form>
+  <p class="text-muted mt-1"><%= orders.length %> order<%= orders.length === 1 ? '' : 's' %><%= orders.length === 500 ? ' (showing first 500 — narrow filters to see more)' : '' %>.</p>
+<% } %>
+
+<script>
+  const checks = document.querySelectorAll('.row-check');
+  const all = document.getElementById('select-all');
+  const bar = document.getElementById('bulk-bar');
+  const count = document.getElementById('bulk-count');
+
+  function update() {
+    const selected = [...checks].filter(c => c.checked).length;
+    count.textContent = selected;
+    bar.style.display = selected > 0 ? '' : 'none';
+    if (all) all.checked = selected === checks.length && checks.length > 0;
+  }
+  if (all) all.addEventListener('change', () => { checks.forEach(c => c.checked = all.checked); update(); });
+  checks.forEach(c => c.addEventListener('change', update));
+</script>
+
+<%- include('../partials/admin-footer') %>

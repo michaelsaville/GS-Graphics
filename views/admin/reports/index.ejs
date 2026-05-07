@@ -1,0 +1,27 @@
+<%- include('../../partials/admin-header') %>
+
+<h2 class="mb-2">Reports</h2>
+
+<div class="grid grid-2">
+  <a href="/admin/reports/sales-tax" class="card" style="text-decoration:none;color:inherit;display:block;">
+    <h3 class="card-title">Sales Tax</h3>
+    <p class="text-muted mb-0">Tax collected by store, over a date range. For tax filings.</p>
+  </a>
+
+  <a href="/admin/reports/blanks" class="card" style="text-decoration:none;color:inherit;display:block;">
+    <h3 class="card-title">Vendor Blank Order</h3>
+    <p class="text-muted mb-0">Pick any combination of stores and aggregate item × color × size totals. Send this to your blank vendor.</p>
+  </a>
+
+  <a href="/admin/reports/customizations" class="card" style="text-decoration:none;color:inherit;display:block;">
+    <h3 class="card-title">Customization Detail</h3>
+    <p class="text-muted mb-0">Per store (and optional pickup event): every personalized item with the customer name and number.</p>
+  </a>
+
+  <a href="/admin/reports/sort" class="card" style="text-decoration:none;color:inherit;display:block;">
+    <h3 class="card-title">Sort / Distribution</h3>
+    <p class="text-muted mb-0">For each garment-variant, list the customers who ordered it. Use this when sorting finished goods before delivery.</p>
+  </a>
+</div>
+
+<%- include('../../partials/admin-footer') %>

@@ -1,0 +1,57 @@
+<%- include('../partials/admin-header') %>
+
+<h2 class="mb-2"><%= item ? 'Edit Item' : 'New Item' %> — <%= store.name %></h2>
+
+<div class="card">
+  <form method="POST"
+        action="/admin/stores/<%= store.id %>/items/<%= item ? item.id + '/edit' : 'new' %>"
+        enctype="multipart/form-data">
+    <%- include('../partials/csrf') %>
+
+    <div class="form-group">
+      <label for="name">Item Name</label>
+      <input type="text" name="name" id="name" class="form-control" value="<%= item ? item.name : '' %>" required>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea name="description" id="description" class="form-control"><%= item ? item.description : '' %></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="base_price">Base Price ($)</label>
+        <input type="number" name="base_price" id="base_price" class="form-control" step="0.01" min="0"
+               value="<%= item ? parseFloat(item.base_price).toFixed(2) : '0.00' %>" required>
+      </div>
+      <div class="form-group">
+        <label for="sort_order">Sort Order</label>
+        <input type="number" name="sort_order" id="sort_order" class="form-control"
+               value="<%= item ? item.sort_order : 0 %>">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="image">Product Image</label>
+      <input type="file" name="image" id="image" accept="image/*" class="form-control">
+      <% if (item && item.image_url) { %>
+        <input type="hidden" name="existing_image" value="<%= item.image_url %>">
+        <img src="<%= item.image_url %>" alt="" style="max-width:120px;margin-top:8px;">
+      <% } %>
+    </div>
+
+    <div class="form-group">
+      <div class="form-check">
+        <input type="checkbox" name="personalization_enabled" id="personalization_enabled"
+               <%= item && item.personalization_enabled ? 'checked' : '' %>>
+        <label for="personalization_enabled">Enable personalization (name/number)</label>
+      </div>
+      <small class="text-muted">Pricing for personalization is set at the store level under Store Settings.</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary"><%= item ? 'Save Changes' : 'Create Item' %></button>
+    <a href="/admin/stores/<%= store.id %>/items" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+
+<%- include('../partials/admin-footer') %>

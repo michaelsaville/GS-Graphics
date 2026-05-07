@@ -1,0 +1,95 @@
+<%- include('../partials/header') %>
+
+<div class="mb-2">
+  <a href="/store/<%= store.slug %>" class="text-muted">&larr; Back to <%= store.name %></a>
+</div>
+
+<div class="grid grid-2">
+  <div>
+    <% if (item.image_url) { %>
+      <img src="<%= item.image_url %>" alt="<%= item.name %>" style="width:100%;border-radius:var(--radius);background:#fafafa;">
+    <% } else { %>
+      <div style="width:100%;height:300px;background:#f0f0f0;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:#ccc;font-size:1.5rem;">
+        No Image
+      </div>
+    <% } %>
+  </div>
+
+  <div>
+    <h2 class="mb-1"><%= item.name %></h2>
+    <div class="item-price mb-2">$<%= parseFloat(item.base_price).toFixed(2) %></div>
+    <% if (item.description) { %><p class="text-muted mb-2"><%= item.description %></p><% } %>
+
+    <% if (!storeOpen) { %>
+      <div class="card flash flash-error">
+        <strong>Orders are closed for this store.</strong>
+        <% if (store.order_deadline_message) { %><p class="mt-1 mb-0"><%= store.order_deadline_message %></p><% } %>
+      </div>
+    <% } else { %>
+    <form method="POST" action="/cart/add">
+      <%- include('../partials/csrf') %>
+      <input type="hidden" name="item_id" value="<%= item.id %>">
+
+      <% if (colors.length > 0) { %>
+        <div class="form-group">
+          <label>Color</label>
+          <div>
+            <% for (const c of colors) { %>
+              <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-right:12px;">
+                <input type="radio" name="color_id" value="<%= c.id %>" <%= colors.indexOf(c) === 0 ? 'checked' : '' %> required>
+                <span class="color-swatch" style="background:<%= c.hex_code %>" title="<%= c.name %>"></span>
+                <span style="font-size:0.85rem"><%= c.name %></span>
+              </label>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (sizes.length > 0) { %>
+        <div class="form-group">
+          <label>Size</label>
+          <select name="size_id" class="form-control" required>
+            <option value="">— Select Size —</option>
+            <% for (const s of sizes) { %>
+              <option value="<%= s.id %>">
+                <%= s.name %><%= parseFloat(s.price_modifier) > 0 ? ' (+$' + parseFloat(s.price_modifier).toFixed(2) + ')' : '' %>
+              </option>
+            <% } %>
+          </select>
+        </div>
+      <% } %>
+
+      <% if (item.personalization_enabled) { %>
+        <div class="card" style="background:#fffde7;border-color:#fff9c4;">
+          <h4 class="mb-1">Personalization</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="personalization_name">Name<%
+                const namePrice = parseFloat(store.personalization_name_price);
+                if (namePrice > 0) { %> (+$<%= namePrice.toFixed(2) %>)<% } else { %> (included)<% } %>
+              </label>
+              <input type="text" name="personalization_name" id="personalization_name" class="form-control" placeholder="e.g. JOHNSON">
+            </div>
+            <div class="form-group">
+              <label for="personalization_number">Number<%
+                const numPrice = parseFloat(store.personalization_number_price);
+                if (numPrice > 0) { %> (+$<%= numPrice.toFixed(2) %>)<% } else { %> (included)<% } %>
+              </label>
+              <input type="text" name="personalization_number" id="personalization_number" class="form-control" placeholder="e.g. 23">
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="form-group">
+        <label for="quantity">Quantity</label>
+        <input type="number" name="quantity" id="quantity" class="form-control" value="1" min="1" max="50" style="max-width:100px;">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%">Add to Cart</button>
+    </form>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

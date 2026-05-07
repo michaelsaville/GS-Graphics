@@ -1,0 +1,100 @@
+<%- include('../../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Sort / Distribution</h2>
+    <a href="/admin/reports" class="text-muted">&larr; All reports</a>
+  </div>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+</div>
+
+<div class="card">
+  <form method="GET" action="/admin/reports/sort">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="store_id">Store</label>
+        <select name="store_id" id="store_id" class="form-control" required onchange="this.form.submit()">
+          <option value="">— Select —</option>
+          <% for (const s of allStores) { %>
+            <option value="<%= s.id %>" <%= storeId === s.id ? 'selected' : '' %>>
+              <%= s.name %><%= !s.active ? ' (inactive)' : '' %>
+            </option>
+          <% } %>
+        </select>
+      </div>
+      <% if (store && events.length > 0) { %>
+        <div class="form-group">
+          <label for="event_id">Pickup Event (optional)</label>
+          <select name="event_id" id="event_id" class="form-control" onchange="this.form.submit()">
+            <option value="">All events</option>
+            <% for (const e of events) { %>
+              <option value="<%= e.id %>" <%= eventId === e.id ? 'selected' : '' %>>
+                <%= e.name %> — <%= new Date(e.event_date).toLocaleDateString() %>
+              </option>
+            <% } %>
+          </select>
+        </div>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<% if (store) { %>
+  <div class="card">
+    <h3 class="card-title">
+      <%= store.name %>
+      <% if (eventId) {
+        const ev = events.find(e => e.id === eventId);
+        if (ev) { %>
+          — <%= ev.name %> (<%= new Date(ev.event_date).toLocaleDateString() %>)
+        <% }
+      } %>
+    </h3>
+    <p class="text-muted mb-2">For each garment-variant: total quantity and the customers it goes to. Use this when sorting finished goods.</p>
+
+    <% if (grouped.length === 0) { %>
+      <p class="text-muted">No paid orders in this scope.</p>
+    <% } else { %>
+      <% for (const g of grouped) { %>
+        <div class="card" style="background:#fafafa;margin-bottom:12px;page-break-inside:avoid;">
+          <div class="d-flex justify-between align-center mb-1">
+            <h4 style="margin:0;">
+              <%= g.item_name %>
+              <% if (g.color_name) { %> — <%= g.color_name %><% } %>
+              <% if (g.size_name) { %> (<%= g.size_name %>)<% } %>
+            </h4>
+            <div class="badge badge-active" style="font-size:0.95rem;">Total: <%= g.total_qty %></div>
+          </div>
+          <table style="margin-top:8px;">
+            <thead>
+              <tr>
+                <th style="width:40px;">Qty</th>
+                <th>Customer</th>
+                <th>Personalization</th>
+                <th style="width:80px;">Order</th>
+                <th style="width:60px;">✓</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% for (const e of g.entries) { %>
+                <tr>
+                  <td><strong><%= e.quantity %></strong></td>
+                  <td><%= e.customer_name %></td>
+                  <td>
+                    <% if (e.personalization_name || e.personalization_number) { %>
+                      <%= e.personalization_name || '' %><% if (e.personalization_number) { %> #<%= e.personalization_number %><% } %>
+                    <% } else { %><span class="text-muted">—</span><% } %>
+                  </td>
+                  <td>#<%= e.order_id %></td>
+                  <td style="font-size:1.2rem;">☐</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('../../partials/admin-footer') %>

@@ -1,0 +1,80 @@
+<%- include('../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Pickup Roster — <%= event.name %></h2>
+    <p class="text-muted">
+      <%= event.store_name %> &middot; <%= new Date(event.event_date).toLocaleDateString() %>
+      <% if (event.event_time) { %> &middot; <%= event.event_time %><% } %>
+      <% if (event.location) { %> &middot; <%= event.location %><% } %>
+    </p>
+    <a href="/admin/stores/<%= event.sid %>/events" class="text-muted">&larr; Back to events</a>
+  </div>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+</div>
+
+<% if (orders.length === 0) { %>
+  <div class="card text-center text-muted">No orders for this pickup event.</div>
+<% } else {
+  const totalPieces = orders.reduce((s, o) => s + (o.piece_count || 0), 0);
+  const fulfilledCount = orders.filter(o => o.status === 'fulfilled').length;
+%>
+  <div class="stat-cards mb-2">
+    <div class="stat-card"><div class="stat-value"><%= orders.length %></div><div class="stat-label">Orders</div></div>
+    <div class="stat-card"><div class="stat-value"><%= totalPieces %></div><div class="stat-label">Total Pieces</div></div>
+    <div class="stat-card"><div class="stat-value"><%= fulfilledCount %></div><div class="stat-label">Fulfilled</div></div>
+    <div class="stat-card"><div class="stat-value"><%= orders.length - fulfilledCount %></div><div class="stat-label">Remaining</div></div>
+  </div>
+
+  <% for (const o of orders) { const oi = orderStatus.info(o.status); const lines = linesByOrder[o.id] || []; %>
+    <div class="card" style="page-break-inside:avoid;<%= o.status === 'fulfilled' ? 'opacity:0.5;background:#f5f5f5;' : '' %>">
+      <div class="d-flex justify-between align-center mb-1">
+        <div>
+          <h3 style="margin:0;"><%= o.customer_name %></h3>
+          <div class="text-muted" style="font-size:0.9rem;">
+            Order #<%= o.id %>
+            <% if (o.customer_email) { %>&middot; <%= o.customer_email %><% } %>
+            <% if (o.customer_phone) { %>&middot; <%= o.customer_phone %><% } %>
+            <% if (o.customer_cell) { %>&middot; cell <%= o.customer_cell %><% } %>
+          </div>
+        </div>
+        <div class="d-flex align-center gap-1">
+          <span class="badge badge-<%= oi.tone %>"><%= oi.label %></span>
+          <% if (o.status !== 'fulfilled') { %>
+            <form method="POST" action="/admin/orders/<%= o.id %>/fulfill?return=/admin/stores/<%= event.sid %>/events/<%= event.id %>/roster" style="display:inline;">
+              <%- include('../partials/csrf') %>
+              <button type="submit" class="btn btn-primary btn-sm">Mark fulfilled</button>
+            </form>
+          <% } %>
+          <a href="/admin/orders/<%= o.id %>" class="btn btn-secondary btn-sm">Open</a>
+        </div>
+      </div>
+      <table style="margin:0;">
+        <thead><tr><th>Qty</th><th>Item</th><th>Personalization</th></tr></thead>
+        <tbody>
+          <% for (const li of lines) { %>
+            <tr>
+              <td><strong><%= li.quantity %></strong></td>
+              <td>
+                <%= li.item_name %>
+                <% if (li.color_name || li.size_name) { %>
+                  <small class="text-muted"><%= [li.color_name, li.size_name].filter(Boolean).join(' / ') %></small>
+                <% } %>
+              </td>
+              <td>
+                <% if (li.personalization_name || li.personalization_number) { %>
+                  <strong><%= li.personalization_name || '' %></strong><% if (li.personalization_number) { %> #<%= li.personalization_number %><% } %>
+                <% } else { %><span class="text-muted">—</span><% } %>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+      <p class="text-muted mt-1" style="font-size:0.85rem;">
+        <%= o.piece_count || 0 %> piece<%= o.piece_count === 1 ? '' : 's' %> &middot; Total $<%= parseFloat(o.total_amount).toFixed(2) %>
+      </p>
+    </div>
+  <% } %>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -1,0 +1,33 @@
+<%- include('../partials/header') %>
+
+<% if (site && site.aboutBlurb) { %>
+  <div class="card mb-3" style="border-left:4px solid var(--brand-color);">
+    <%- site.aboutBlurb %>
+  </div>
+<% } %>
+
+<h2 class="mb-2">Our Stores</h2>
+
+<% if (stores.length === 0) { %>
+  <div class="card text-center text-muted">No active stores right now. Check back soon!</div>
+<% } else { %>
+  <div class="grid grid-3">
+    <% for (const s of stores) { %>
+      <a href="/store/<%= s.slug %>" class="store-card" style="text-decoration:none;color:inherit;">
+        <% if (s.image_url) { %>
+          <img src="<%= s.image_url %>" alt="<%= s.name %>" class="store-card-img">
+        <% } else { %>
+          <div class="store-card-img" style="background:#eee;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:2rem;">
+            <%= s.name.charAt(0) %>
+          </div>
+        <% } %>
+        <div class="store-card-body">
+          <h3><%= s.name %></h3>
+          <% if (s.description) { %><p><%= s.description.substring(0, 120) %></p><% } %>
+        </div>
+      </a>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

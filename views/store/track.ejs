@@ -1,0 +1,91 @@
+<%- include('../partials/header') %>
+
+<div style="max-width:700px;margin:0 auto;">
+  <h2 class="mb-2">Track Your Order</h2>
+  <p class="text-muted mb-2">Enter your order number and the email you used at checkout.</p>
+
+  <div class="card">
+    <form method="POST" action="/track">
+      <%- include('../partials/csrf') %>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="order_id">Order #</label>
+          <input type="number" name="order_id" id="order_id" class="form-control" required value="<%= query.order_id %>">
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label for="email">Email</label>
+          <input type="email" name="email" id="email" class="form-control" required value="<%= query.email %>">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Look up</button>
+    </form>
+  </div>
+
+  <% if (result) { %>
+    <% if (!result.found) { %>
+      <div class="card flash flash-error mt-2">
+        No order found matching those details. Double-check your order number and the email you used at checkout, or <a href="/contact">contact us</a> for help.
+      </div>
+    <% } else {
+      const o = result.order;
+      const info = orderStatus.info(o.status);
+    %>
+      <div class="card mt-2">
+        <div class="d-flex justify-between align-center mb-2">
+          <h3 style="margin:0;">Order #<%= o.id %></h3>
+          <span class="badge badge-<%= info.tone %>" style="font-size:1rem;padding:6px 12px;"><%= info.label %></span>
+        </div>
+
+        <p class="text-muted">Placed <%= new Date(o.created_at).toLocaleString() %> for <strong><%= o.store_name %></strong>.</p>
+
+        <% if (o.event_name) { %>
+          <div style="background:#fffde7;padding:8px 12px;border-radius:4px;margin-bottom:12px;">
+            <strong>Pickup:</strong> <%= o.event_name %> — <%= new Date(o.event_date).toLocaleDateString() %><%= o.event_time ? ' ' + o.event_time : '' %><%= o.event_location ? ' at ' + o.event_location : '' %>
+          </div>
+        <% } %>
+
+        <div class="table-wrap mb-2">
+          <table>
+            <thead><tr><th>Qty</th><th>Item</th><th>Personalization</th><th class="text-right">Price</th></tr></thead>
+            <tbody>
+              <% for (const li of result.items) { %>
+                <tr>
+                  <td><%= li.quantity %></td>
+                  <td>
+                    <%= li.item_name %>
+                    <% if (li.color_name || li.size_name) { %>
+                      <small class="text-muted"><%= [li.color_name, li.size_name].filter(Boolean).join(' / ') %></small>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (li.personalization_name || li.personalization_number) { %>
+                      <%= li.personalization_name || '' %><%= li.personalization_number ? ' #' + li.personalization_number : '' %>
+                    <% } else { %>—<% } %>
+                  </td>
+                  <td class="text-right">$<%= (parseFloat(li.unit_price) * li.quantity).toFixed(2) %></td>
+                </tr>
+              <% } %>
+            </tbody>
+            <tfoot>
+              <tr><td colspan="3" class="text-right">Total</td><td class="text-right"><strong>$<%= parseFloat(o.total_amount).toFixed(2) %></strong></td></tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <% if (result.log.length > 0) { %>
+          <h4>Status history</h4>
+          <ul style="list-style:none;padding:0;">
+            <% for (const e of result.log) { const ei = orderStatus.info(e.to_status); %>
+              <li style="padding:6px 0;border-bottom:1px solid #eee;">
+                <span class="text-muted" style="font-size:0.85rem;"><%= new Date(e.created_at).toLocaleString() %></span>
+                — <span class="badge badge-<%= ei.tone %>"><%= ei.label %></span>
+              </li>
+            <% } %>
+          </ul>
+        <% } %>
+      </div>
+    <% } %>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

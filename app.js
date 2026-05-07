@@ -4,6 +4,9 @@ const pgSession    = require('connect-pg-simple')(session);
 const path         = require('path');
 const config       = require('./config');
 const { pool }     = require('./db');
+const { csrfMiddleware } = require('./csrf');
+const siteSettings = require('./site-settings');
+const orderStatus = require('./order-status');
 
 const app = express();
 
@@ -27,14 +30,43 @@ app.use(session({
   cookie: { maxAge: 8 * 60 * 60 * 1000 }, // 8 hours
 }));
 
+// ─── CSRF ────────────────────────────────────────────────────────────────────
+// Multipart routes (upload forms) defer enforcement to a per-route check that
+// runs after multer — see csrfCheck usage in routes/admin.js.
+app.use(csrfMiddleware);
+
 // ─── Template Globals ─────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  res.locals.brand        = config.brand;
-  res.locals.baseUrl      = config.baseUrl;
+app.use(async (req, res, next) => {
+  try {
+    const settings = await siteSettings.load();
+    res.locals.brand = settings.brand;
+    res.locals.site  = settings.site;
+  } catch (err) {
+    // If DB read fails, fall back to env so the page can still render
+    console.error('site_settings load failed:', err.message);
+    res.locals.brand = config.brand;
+    res.locals.site  = { aboutBlurb: '', companyPhone: '', companyAddress: '', companyEmail: '', facebookUrl: '', privacyPolicyHtml: '', contactRecipient: '' };
+  }
+  res.locals.baseUrl       = config.baseUrl;
   res.locals.adminLoggedIn = req.session.adminLoggedIn || false;
-  res.locals.flash        = req.session.flash || null;
+  res.locals.flash         = req.session.flash || null;
+  res.locals.orderStatus   = orderStatus;
   delete req.session.flash;
   next();
+});
+
+// ─── Maintenance gate ────────────────────────────────────────────────────────
+// When maintenance is on, only /admin and /uploads are reachable. Everything
+// else gets the maintenance page so the operator can keep working.
+app.use((req, res, next) => {
+  if (!res.locals.site || !res.locals.site.maintenanceEnabled) return next();
+  if (req.session.adminLoggedIn) return next();
+  if (req.path.startsWith('/admin') || req.path.startsWith('/uploads') || req.path.startsWith('/css') || req.path === '/favicon.svg') return next();
+  res.status(503).render('store/maintenance', {
+    title: 'Back Soon',
+    cart: [],
+    message: res.locals.site.maintenanceMessage,
+  });
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────

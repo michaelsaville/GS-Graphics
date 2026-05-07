@@ -1,0 +1,63 @@
+<%- include('../partials/admin-header') %>
+
+<div class="mb-2">
+  <h2>Pickup Events — <%= store.name %></h2>
+  <a href="/admin/stores" class="text-muted">&larr; Back to stores</a>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Add Pickup Event</h3>
+  <form method="POST" action="/admin/stores/<%= store.id %>/events">
+    <%- include('../partials/csrf') %>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Event Name</label>
+        <input type="text" name="name" id="name" class="form-control" required placeholder="e.g. Friday Night Game Pickup">
+      </div>
+      <div class="form-group">
+        <label for="event_date">Date</label>
+        <input type="date" name="event_date" id="event_date" class="form-control" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="event_time">Time</label>
+        <input type="text" name="event_time" id="event_time" class="form-control" placeholder="e.g. 5:00 PM - 7:00 PM">
+      </div>
+      <div class="form-group">
+        <label for="location">Location</label>
+        <input type="text" name="location" id="location" class="form-control" placeholder="e.g. Main Gym Lobby">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Add Event</button>
+  </form>
+</div>
+
+<% if (events.length > 0) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Event</th><th>Date</th><th>Time</th><th>Location</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% for (const e of events) { %>
+          <tr>
+            <td><strong><%= e.name %></strong></td>
+            <td><%= new Date(e.event_date).toLocaleDateString() %></td>
+            <td><%= e.event_time || '—' %></td>
+            <td><%= e.location || '—' %></td>
+            <td>
+              <a href="/admin/stores/<%= store.id %>/events/<%= e.id %>/roster" class="btn btn-secondary btn-sm">Roster</a>
+              <form method="POST" action="/admin/stores/<%= store.id %>/events/<%= e.id %>/delete" style="display:inline">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+              </form>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

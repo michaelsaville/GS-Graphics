@@ -1,0 +1,48 @@
+<%- include('../partials/header') %>
+
+<div class="container-narrow mt-3">
+  <div class="card text-center">
+    <h2 class="text-success mb-1">Order Confirmed!</h2>
+    <p class="text-muted">Order #<%= order.id %></p>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">Order Details</h3>
+    <p><strong>Customer:</strong> <%= order.customer_name %></p>
+    <p><strong>Email:</strong> <%= order.customer_email %></p>
+    <% if (order.event_name) { %>
+      <p><strong>Pickup:</strong> <%= order.event_name %> — <%= new Date(order.event_date).toLocaleDateString() %><%= order.event_time ? ' ' + order.event_time : '' %><%= order.event_location ? ' @ ' + order.event_location : '' %></p>
+    <% } %>
+    <% if (parseFloat(order.tax_amount || 0) > 0) { %>
+      <p><strong>Subtotal:</strong> $<%= (parseFloat(order.total_amount) - parseFloat(order.tax_amount)).toFixed(2) %></p>
+      <p><strong>Tax:</strong> $<%= parseFloat(order.tax_amount).toFixed(2) %></p>
+    <% } %>
+    <p><strong>Total:</strong> $<%= parseFloat(order.total_amount).toFixed(2) %></p>
+    <% if (order.square_payment_id) { %>
+      <p class="text-muted" style="font-size:0.8rem;">Payment ref: <%= order.square_payment_id %></p>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">Items Ordered</h3>
+    <% for (const li of items) { %>
+      <div style="padding:8px 0;border-bottom:1px solid #eee;">
+        <strong><%= li.item_name %></strong>
+        <% if (li.color_name || li.size_name) { %>
+          — <%= [li.color_name, li.size_name].filter(Boolean).join(' / ') %>
+        <% } %>
+        <span class="text-muted">x<%= li.quantity %></span>
+        <span style="float:right">$<%= (parseFloat(li.unit_price) * li.quantity).toFixed(2) %></span>
+        <% if (li.personalization_name || li.personalization_number) { %>
+          <br><small class="text-muted">Personalization: <%= li.personalization_name || '' %> <%= li.personalization_number ? '#' + li.personalization_number : '' %></small>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="text-center mt-2">
+    <a href="/" class="btn btn-primary">Continue Shopping</a>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

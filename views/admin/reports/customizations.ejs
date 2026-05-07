@@ -1,0 +1,97 @@
+<%- include('../../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Customization Detail</h2>
+    <a href="/admin/reports" class="text-muted">&larr; All reports</a>
+  </div>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+</div>
+
+<div class="card">
+  <form method="GET" action="/admin/reports/customizations">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="store_id">Store</label>
+        <select name="store_id" id="store_id" class="form-control" required onchange="this.form.submit()">
+          <option value="">— Select —</option>
+          <% for (const s of allStores) { %>
+            <option value="<%= s.id %>" <%= storeId === s.id ? 'selected' : '' %>>
+              <%= s.name %><%= !s.active ? ' (inactive)' : '' %>
+            </option>
+          <% } %>
+        </select>
+      </div>
+      <% if (store && events.length > 0) { %>
+        <div class="form-group">
+          <label for="event_id">Pickup Event (optional)</label>
+          <select name="event_id" id="event_id" class="form-control" onchange="this.form.submit()">
+            <option value="">All events</option>
+            <% for (const e of events) { %>
+              <option value="<%= e.id %>" <%= eventId === e.id ? 'selected' : '' %>>
+                <%= e.name %> — <%= new Date(e.event_date).toLocaleDateString() %>
+              </option>
+            <% } %>
+          </select>
+        </div>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<% if (store) { %>
+  <div class="card">
+    <h3 class="card-title">
+      <%= store.name %>
+      <% if (eventId) {
+        const ev = events.find(e => e.id === eventId);
+        if (ev) { %>
+          — <%= ev.name %> (<%= new Date(ev.event_date).toLocaleDateString() %>)
+        <% }
+      } %>
+    </h3>
+    <p class="text-muted mb-2">Paid orders with name and/or number printing.</p>
+
+    <% if (rows.length === 0) { %>
+      <p class="text-muted">No personalized items in this scope.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Color</th>
+              <th>Size</th>
+              <th>Name</th>
+              <th>Number</th>
+              <th>Qty</th>
+              <th>Customer</th>
+              <th>Order</th>
+              <% if (!eventId) { %><th>Pickup</th><% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const r of rows) { %>
+              <tr>
+                <td><%= r.item_name %></td>
+                <td><%= r.color_name || '—' %></td>
+                <td><%= r.size_name || '—' %></td>
+                <td><strong><%= r.personalization_name || '—' %></strong></td>
+                <td><strong><%= r.personalization_number || '—' %></strong></td>
+                <td><%= r.quantity %></td>
+                <td><%= r.customer_name %></td>
+                <td>#<%= r.order_id %></td>
+                <% if (!eventId) { %>
+                  <td><%= r.event_name || '—' %></td>
+                <% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted mt-1"><%= rows.length %> personalized line<%= rows.length === 1 ? '' : 's' %>.</p>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include('../../partials/admin-footer') %>

@@ -1,0 +1,56 @@
+<%- include('../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Items — <%= store.name %></h2>
+    <a href="/admin/stores" class="text-muted">&larr; Back to stores</a>
+  </div>
+  <a href="/admin/stores/<%= store.id %>/items/new" class="btn btn-primary btn-sm">+ New Item</a>
+</div>
+
+<% if (items.length === 0) { %>
+  <div class="card text-center text-muted">No items yet. Add your first product.</div>
+<% } else { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Price</th>
+          <th>Personalize</th>
+          <th>Order</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% for (const item of items) { %>
+          <tr>
+            <td>
+              <% if (item.image_url) { %>
+                <img src="<%= item.image_url %>" alt="" style="width:50px;height:50px;object-fit:contain;">
+              <% } else { %>
+                <div style="width:50px;height:50px;background:#eee;border-radius:4px;"></div>
+              <% } %>
+            </td>
+            <td><strong><%= item.name %></strong></td>
+            <td>$<%= parseFloat(item.base_price).toFixed(2) %></td>
+            <td><%= item.personalization_enabled ? 'Yes' : '—' %></td>
+            <td><%= item.sort_order %></td>
+            <td>
+              <a href="/admin/stores/<%= store.id %>/items/<%= item.id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="/admin/stores/<%= store.id %>/items/<%= item.id %>/colors" class="btn btn-secondary btn-sm">Colors</a>
+              <form method="POST" action="/admin/stores/<%= store.id %>/items/<%= item.id %>/delete" style="display:inline"
+                    onsubmit="return confirm('Delete this item?')">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

@@ -1,0 +1,358 @@
+<%- include('../partials/admin-header') %>
+
+<h2 class="mb-2">Site Settings</h2>
+<p class="text-muted mb-2">Branding, company information, and editable copy. Changes take effect within 30 seconds.</p>
+
+<div class="card">
+  <form method="POST" action="/admin/settings" enctype="multipart/form-data">
+    <%- include('../partials/csrf') %>
+
+    <h3 class="card-title">Branding</h3>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="brand_name">Brand Name</label>
+        <input type="text" name="brand_name" id="brand_name" class="form-control"
+               value="<%= settings.brand_name || 'GS Graphics' %>" required>
+      </div>
+      <div class="form-group">
+        <label for="brand_tagline">Tagline</label>
+        <input type="text" name="brand_tagline" id="brand_tagline" class="form-control"
+               value="<%= settings.brand_tagline || '' %>" placeholder="optional">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="brand_color">Theme Color</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <input type="color" name="brand_color" id="brand_color"
+               value="<%= settings.brand_color || '#2e7d32' %>"
+               style="height:42px;width:80px;padding:4px;border:1px solid #ccc;border-radius:4px;">
+        <code id="brand_color_label"><%= settings.brand_color || '#2e7d32' %></code>
+        <small class="text-muted">Used for buttons, accents, and the brand bar.</small>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="logo">Logo</label>
+      <input type="file" name="logo" id="logo" accept="image/*" class="form-control">
+      <% if (settings.logo_url) { %>
+        <input type="hidden" name="existing_logo" value="<%= settings.logo_url %>">
+        <div style="margin-top:8px;display:flex;align-items:center;gap:12px;background:#f5f5f5;padding:8px;border-radius:4px;">
+          <img src="<%= settings.logo_url %>" alt="logo" style="height:48px;max-width:200px;object-fit:contain;background:white;padding:4px;border-radius:4px;">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" name="clear_logo">
+            <span>Remove logo on save</span>
+          </label>
+        </div>
+      <% } else { %>
+        <small class="text-muted">No logo uploaded. The brand name will be shown instead.</small>
+      <% } %>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">About Us (home page)</h3>
+    <div class="form-group">
+      <label>About blurb</label>
+      <input type="hidden" name="about_blurb" id="about_blurb_input" value="<%= settings.about_blurb || '' %>">
+      <div id="about_blurb_editor" class="rich-editor"><%- settings.about_blurb || '' %></div>
+      <small class="text-muted">Shown above the list of stores on the home page. Leave blank to hide.</small>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Company Info</h3>
+    <p class="text-muted mb-2" style="font-size:0.85rem;">Shown in the site footer and on the contact page.</p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="company_phone">Phone</label>
+        <input type="text" name="company_phone" id="company_phone" class="form-control"
+               value="<%= settings.company_phone || '' %>" placeholder="(555) 555-5555">
+      </div>
+      <div class="form-group">
+        <label for="company_email">Email</label>
+        <input type="email" name="company_email" id="company_email" class="form-control"
+               value="<%= settings.company_email || '' %>" placeholder="hello@yourshop.com">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="company_address">Address</label>
+      <input type="text" name="company_address" id="company_address" class="form-control"
+             value="<%= settings.company_address || '' %>" placeholder="123 Main St, Anytown, OH 44000">
+    </div>
+
+    <div class="form-group">
+      <label for="facebook_url">Facebook page URL</label>
+      <input type="url" name="facebook_url" id="facebook_url" class="form-control"
+             value="<%= settings.facebook_url || '' %>" placeholder="https://www.facebook.com/yourpage">
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Contact Form</h3>
+    <div class="form-group">
+      <label for="contact_recipient_email">Where to send contact form messages</label>
+      <input type="email" name="contact_recipient_email" id="contact_recipient_email" class="form-control"
+             value="<%= settings.contact_recipient_email || '' %>" placeholder="orders@yourshop.com">
+      <small class="text-muted">Operator notifications (new orders, contact submissions) go here. Submissions are saved even if the email send fails.</small>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Outbound Email (SMTP)</h3>
+    <p class="text-muted mb-2">Credentials for sending mail. Works with any provider — Resend, Brevo, GoDaddy, AWS SES, your ISP, etc. Without these, emails are silently skipped (orders still process fine).</p>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2;">
+        <label for="smtp_host">Host</label>
+        <input type="text" name="smtp_host" id="smtp_host" class="form-control" value="<%= settings.smtp_host || '' %>" placeholder="smtp.your-provider.com">
+      </div>
+      <div class="form-group">
+        <label for="smtp_port">Port</label>
+        <input type="number" name="smtp_port" id="smtp_port" class="form-control" value="<%= settings.smtp_port || 587 %>" placeholder="587">
+      </div>
+      <div class="form-group">
+        <label for="smtp_secure" style="display:block;">SSL/TLS</label>
+        <label class="form-check" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;">
+          <input type="checkbox" name="smtp_secure" id="smtp_secure" <%= settings.smtp_secure ? 'checked' : '' %>>
+          <span>Use SSL (port 465)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="smtp_user">Username</label>
+        <input type="text" name="smtp_user" id="smtp_user" class="form-control" value="<%= settings.smtp_user || '' %>" placeholder="user@your-provider.com" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="smtp_pass">Password</label>
+        <input type="password" name="smtp_pass" id="smtp_pass" class="form-control"
+               placeholder="<%= settings.smtp_pass ? '••• saved ••• (leave blank to keep)' : 'enter password' %>" autocomplete="new-password">
+        <small class="text-muted">Leave blank to keep the existing password.</small>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="smtp_from">From address</label>
+      <input type="text" name="smtp_from" id="smtp_from" class="form-control" value="<%= settings.smtp_from || '' %>"
+             placeholder='"GS Graphics" &lt;noreply@yourdomain.com&gt;'>
+      <small class="text-muted">If blank, uses the username as the From address.</small>
+    </div>
+
+    <div class="card" style="background:#f5f5f5;padding:12px;margin-top:8px;">
+      <strong>Test outbound email</strong>
+      <p class="text-muted mb-1" style="font-size:0.85rem;">Save settings first, then send a test to verify credentials work.</p>
+      <div class="d-flex gap-1 align-center" style="margin-top:8px;">
+        <input type="email" id="smtp_test_to" class="form-control" placeholder="your@email.com" style="max-width:300px;">
+        <button type="button" id="smtp_test_btn" class="btn btn-secondary btn-sm">Send test</button>
+        <span id="smtp_test_result" style="font-size:0.9rem;"></span>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Square Payments</h3>
+    <p class="text-muted mb-2">
+      Without these, the site stays in sandbox mode — orders submit instantly and are marked paid without charging cards.
+      Switch to <strong>Production</strong> with real credentials to take live payments.
+      Get credentials at <a href="https://developer.squareup.com/apps" target="_blank" rel="noopener noreferrer">developer.squareup.com/apps</a>.
+    </p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="square_environment">Environment</label>
+        <select name="square_environment" id="square_environment" class="form-control">
+          <option value="sandbox"    <%= settings.square_environment === 'sandbox'    ? 'selected' : '' %>>Sandbox (test)</option>
+          <option value="production" <%= settings.square_environment === 'production' ? 'selected' : '' %>>Production (real charges)</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label for="square_location_id">Location ID</label>
+        <input type="text" name="square_location_id" id="square_location_id" class="form-control"
+               value="<%= settings.square_location_id || '' %>" placeholder="L… (use Test connection to pick one)">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="square_access_token">Access token</label>
+      <input type="password" name="square_access_token" id="square_access_token" class="form-control"
+             placeholder="<%= settings.square_access_token ? '••• saved ••• (leave blank to keep)' : 'EAAAE…' %>" autocomplete="new-password">
+      <small class="text-muted">Leave blank to keep the existing token.</small>
+    </div>
+
+    <div class="card" style="background:#f5f5f5;padding:12px;margin-top:8px;">
+      <strong>Test connection</strong>
+      <p class="text-muted mb-1" style="font-size:0.85rem;">Save first. Calls Square to list your locations — verifies the token + lets you pick the right Location ID.</p>
+      <div class="d-flex gap-1 align-center" style="margin-top:8px;flex-wrap:wrap;">
+        <button type="button" id="square_test_btn" class="btn btn-secondary btn-sm">Test &amp; list locations</button>
+        <span id="square_test_result" style="font-size:0.9rem;"></span>
+      </div>
+      <div id="square_locations_picker" style="margin-top:8px;display:none;"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Maintenance Mode</h3>
+    <p class="text-muted mb-2">When enabled, public visitors see a "back soon" page. Admin still works as normal so you can disable it again.</p>
+
+    <div class="form-group">
+      <label class="form-check" style="display:inline-flex;align-items:center;gap:8px;">
+        <input type="checkbox" name="maintenance_enabled" <%= settings.maintenance_enabled ? 'checked' : '' %>>
+        <strong>Enable maintenance mode</strong>
+      </label>
+    </div>
+    <div class="form-group">
+      <label for="maintenance_message">Message shown to visitors</label>
+      <textarea name="maintenance_message" id="maintenance_message" class="form-control" rows="2"
+                placeholder="We're briefly offline for updates. Please check back shortly."><%= settings.maintenance_message || '' %></textarea>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #e0e0e0;margin:24px 0;">
+
+    <h3 class="card-title">Privacy Policy</h3>
+    <div class="form-group">
+      <label>Privacy policy</label>
+      <input type="hidden" name="privacy_policy_html" id="privacy_policy_html_input" value="<%= (settings.privacy_policy_html || '').replace(/"/g, '&quot;') %>">
+      <div id="privacy_policy_html_editor" class="rich-editor rich-editor-tall"><%- settings.privacy_policy_html || '' %></div>
+      <small class="text-muted">Pre-filled with a generic boilerplate. Review with your own legal counsel and update before relying on it.</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </form>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<style>
+  .rich-editor { background:#fff; min-height:160px; }
+  .rich-editor-tall { min-height:400px; }
+  .ql-toolbar.ql-snow { border-radius:4px 4px 0 0; }
+  .ql-container.ql-snow { border-radius:0 0 4px 4px; }
+</style>
+<script>
+  const colorInput = document.getElementById('brand_color');
+  const colorLabel = document.getElementById('brand_color_label');
+  if (colorInput && colorLabel) {
+    colorInput.addEventListener('input', () => { colorLabel.textContent = colorInput.value; });
+  }
+
+  const QUILL_TOOLBAR = [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ align: [] }],
+    ['link', 'blockquote'],
+    ['clean'],
+  ];
+
+  function wireEditor(editorId, inputId) {
+    const editorEl = document.getElementById(editorId);
+    const inputEl = document.getElementById(inputId);
+    if (!editorEl || !inputEl || typeof Quill === 'undefined') return;
+
+    const quill = new Quill(editorEl, {
+      theme: 'snow',
+      modules: { toolbar: QUILL_TOOLBAR },
+      placeholder: 'Type here…',
+    });
+
+    const form = editorEl.closest('form');
+    form.addEventListener('submit', () => {
+      // Quill emits <p><br></p> for an empty editor — treat that as blank.
+      const html = quill.root.innerHTML.trim();
+      inputEl.value = (html === '<p><br></p>') ? '' : html;
+    });
+  }
+
+  wireEditor('about_blurb_editor', 'about_blurb_input');
+  wireEditor('privacy_policy_html_editor', 'privacy_policy_html_input');
+
+  // Square test-connection button. Calls listLocations and offers a one-click location picker.
+  const sqTestBtn = document.getElementById('square_test_btn');
+  if (sqTestBtn) {
+    sqTestBtn.addEventListener('click', async () => {
+      const result = document.getElementById('square_test_result');
+      const picker = document.getElementById('square_locations_picker');
+      result.textContent = 'Testing…'; result.style.color = '#666';
+      picker.style.display = 'none'; picker.innerHTML = '';
+      sqTestBtn.disabled = true;
+      try {
+        const csrf = document.querySelector('input[name="_csrf"]').value;
+        const res = await fetch('/admin/settings/test-square', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf },
+          body: '',
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          result.textContent = '✓ Connected (' + data.environment + ') — ' + data.locations.length + ' location(s)';
+          result.style.color = '#2e7d32';
+          if (data.locations.length > 0) {
+            picker.style.display = '';
+            picker.innerHTML = '<small class="text-muted">Click a location to use it as the active Location ID:</small>';
+            data.locations.forEach(l => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn btn-secondary btn-sm';
+              btn.style.cssText = 'margin:4px 4px 0 0;display:inline-flex;flex-direction:column;align-items:flex-start;text-align:left;';
+              btn.innerHTML = '<strong>' + (l.name || '(unnamed)') + '</strong><code style="font-size:0.75rem;">' + l.id + '</code>';
+              btn.addEventListener('click', () => {
+                document.getElementById('square_location_id').value = l.id;
+                result.textContent = '↳ Location ID set. Save to apply.';
+              });
+              picker.appendChild(btn);
+            });
+          }
+        } else {
+          result.textContent = '✗ ' + (data.error || 'Failed');
+          result.style.color = '#c62828';
+        }
+      } catch (err) {
+        result.textContent = '✗ Network error: ' + err.message;
+        result.style.color = '#c62828';
+      } finally {
+        sqTestBtn.disabled = false;
+      }
+    });
+  }
+
+  // Send-test-email button. Hits the JSON endpoint and shows success/failure inline.
+  const testBtn = document.getElementById('smtp_test_btn');
+  if (testBtn) {
+    testBtn.addEventListener('click', async () => {
+      const to = document.getElementById('smtp_test_to').value.trim();
+      const result = document.getElementById('smtp_test_result');
+      if (!to) { result.textContent = 'Enter a recipient first.'; result.style.color = '#c62828'; return; }
+      result.textContent = 'Sending…';
+      result.style.color = '#666';
+      testBtn.disabled = true;
+      try {
+        const csrf = document.querySelector('input[name="_csrf"]').value;
+        const res = await fetch('/admin/settings/test-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf },
+          body: 'to=' + encodeURIComponent(to),
+        });
+        const data = await res.json();
+        if (data.status === 'sent') {
+          result.textContent = '✓ Sent! Check ' + to;
+          result.style.color = '#2e7d32';
+        } else {
+          result.textContent = '✗ ' + (data.error || 'Failed');
+          result.style.color = '#c62828';
+        }
+      } catch (err) {
+        result.textContent = '✗ Network error: ' + err.message;
+        result.style.color = '#c62828';
+      } finally {
+        testBtn.disabled = false;
+      }
+    });
+  }
+</script>
+
+<%- include('../partials/admin-footer') %>

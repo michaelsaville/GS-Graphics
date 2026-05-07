@@ -1,0 +1,164 @@
+<%- include('../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Order #<%= order.id %></h2>
+    <a href="/admin/orders" class="text-muted">&larr; Back to orders</a>
+  </div>
+  <div>
+    <% const info = orderStatus.info(order.status); %>
+    <span class="badge badge-<%= info.tone %>" style="font-size:1rem;padding:6px 12px;"><%= info.label %></span>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3 class="card-title">Customer</h3>
+    <p><strong><%= order.customer_name %></strong></p>
+    <p><a href="mailto:<%= order.customer_email %>"><%= order.customer_email %></a></p>
+    <p>Phone: <%= order.customer_phone || '—' %></p>
+    <p>Cell: <%= order.customer_cell || '—' %></p>
+    <% if (order.customer_address) { %>
+      <p><%= order.customer_address %></p>
+      <p><%= order.customer_city %>, <%= order.customer_state %> <%= order.customer_zip %></p>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title">Order Info</h3>
+    <p><strong>Store:</strong> <%= order.store_name || '—' %></p>
+    <p><strong>Subtotal:</strong> $<%= (parseFloat(order.total_amount) - parseFloat(order.tax_amount || 0)).toFixed(2) %></p>
+    <% if (parseFloat(order.tax_amount || 0) > 0) { %>
+      <p><strong>Tax:</strong> $<%= parseFloat(order.tax_amount).toFixed(2) %></p>
+    <% } %>
+    <p><strong>Total:</strong> $<%= parseFloat(order.total_amount).toFixed(2) %></p>
+    <p><strong>Date:</strong> <%= new Date(order.created_at).toLocaleString() %></p>
+    <% if (order.event_name) { %>
+      <p><strong>Pickup:</strong> <%= order.event_name %> — <%= new Date(order.event_date).toLocaleDateString() %><%= order.event_location ? ' at ' + order.event_location : '' %></p>
+    <% } %>
+    <% if (order.square_payment_id) { %>
+      <p><strong>Square ID:</strong> <code><%= order.square_payment_id %></code></p>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Update Status</h3>
+  <form method="POST" action="/admin/orders/<%= order.id %>/status">
+    <%- include('../partials/csrf') %>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="status">New status</label>
+        <select name="status" id="status" class="form-control" required>
+          <% for (const s of orderStatus.MANUAL_CHOICES) { const i = orderStatus.info(s); %>
+            <option value="<%= s %>" <%= s === order.status ? 'selected' : '' %>><%= i.label %></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label for="note">Note (optional, shown in audit log; included in email if notifying)</label>
+        <input type="text" name="note" id="note" class="form-control" maxlength="2000" placeholder="e.g. Pickup ready at the Friday event">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-check" style="display:inline-flex;align-items:center;gap:6px;">
+        <input type="checkbox" name="notify_customer" id="notify_customer" <%= order.customer_email ? 'checked' : 'disabled' %>>
+        <span>Email the customer (<%= order.customer_email || 'no email on file' %>)</span>
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save status</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 class="card-title">Add a note (no status change)</h3>
+  <form method="POST" action="/admin/orders/<%= order.id %>/note">
+    <%- include('../partials/csrf') %>
+    <div class="form-group">
+      <textarea name="note" class="form-control" rows="2" maxlength="2000" placeholder="e.g. Customer called to confirm pickup time" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">Add note</button>
+  </form>
+</div>
+
+<% if (log.length > 0) { %>
+  <div class="card">
+    <h3 class="card-title">Audit Log</h3>
+    <ul style="list-style:none;padding:0;margin:0;">
+      <% for (const entry of log) {
+        const fromI = orderStatus.info(entry.from_status);
+        const toI   = orderStatus.info(entry.to_status);
+        const isStatusChange = entry.from_status && entry.from_status !== entry.to_status;
+      %>
+        <li style="padding:10px 0;border-bottom:1px solid #eee;">
+          <div class="text-muted" style="font-size:0.8rem;"><%= new Date(entry.created_at).toLocaleString() %></div>
+          <% if (isStatusChange) { %>
+            <div>
+              <span class="badge badge-<%= fromI.tone %>"><%= fromI.label %></span>
+              &rarr;
+              <span class="badge badge-<%= toI.tone %>"><%= toI.label %></span>
+            </div>
+          <% } else { %>
+            <div><strong>Note added</strong> while <span class="badge badge-<%= toI.tone %>"><%= toI.label %></span></div>
+          <% } %>
+          <% if (entry.note) { %>
+            <div style="margin-top:6px;color:#444;font-size:0.95rem;"><%= entry.note %></div>
+          <% } %>
+        </li>
+      <% } %>
+    </ul>
+  </div>
+<% } %>
+
+<div class="card">
+  <h3 class="card-title">Line Items</h3>
+  <p class="text-muted mb-2" style="font-size:0.85rem;">Edit quantity / personalization or remove a line. Order total + tax recompute automatically.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Color / Size</th><th style="width:80px;">Qty</th><th>Price</th><th>Personalization</th><th style="width:140px;"></th></tr>
+      </thead>
+      <tbody>
+        <% for (const li of items) { %>
+          <tr>
+            <form method="POST" action="/admin/orders/<%= order.id %>/items/<%= li.id %>/edit" style="display:contents;">
+              <%- include('../partials/csrf') %>
+              <td><%= li.item_name %></td>
+              <td><%= [li.color_name, li.size_name].filter(Boolean).join(' / ') || '—' %></td>
+              <td><input type="number" name="quantity" class="form-control" value="<%= li.quantity %>" min="1" max="999" style="width:70px;"></td>
+              <td>
+                $<%= parseFloat(li.unit_price).toFixed(2) %>
+                <small class="text-muted">ea</small>
+              </td>
+              <td>
+                <input type="text" name="personalization_name" class="form-control" value="<%= li.personalization_name || '' %>" placeholder="name" style="max-width:140px;display:inline-block;margin-bottom:4px;">
+                <input type="text" name="personalization_number" class="form-control" value="<%= li.personalization_number || '' %>" placeholder="#" style="max-width:80px;display:inline-block;">
+              </td>
+              <td>
+                <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+            </form>
+                <form method="POST" action="/admin/orders/<%= order.id %>/items/<%= li.id %>/delete" style="display:inline;"
+                      onsubmit="return confirm('Remove this line? Order total will recompute.')">
+                  <%- include('../partials/csrf') %>
+                  <button type="submit" class="btn btn-danger btn-sm">×</button>
+                </form>
+              </td>
+          </tr>
+        <% } %>
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid #333;">
+          <td colspan="3"></td>
+          <td colspan="2" class="text-right">
+            Subtotal: $<%= (parseFloat(order.total_amount) - parseFloat(order.tax_amount || 0)).toFixed(2) %><br>
+            <% if (parseFloat(order.tax_amount || 0) > 0) { %>Tax: $<%= parseFloat(order.tax_amount).toFixed(2) %><br><% } %>
+            <strong>Total: $<%= parseFloat(order.total_amount).toFixed(2) %></strong>
+          </td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/admin-footer') %>

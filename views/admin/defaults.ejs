@@ -1,0 +1,98 @@
+<%- include('../partials/admin-header') %>
+
+<h2 class="mb-2">Shop Defaults</h2>
+<p class="text-muted mb-2">These values are used as the starting template whenever you create a new store. Changes here do not affect existing stores.</p>
+
+<div class="grid grid-2">
+
+  <!-- Pricing Defaults -->
+  <div class="card">
+    <h3 class="card-title">Default Pricing</h3>
+    <form method="POST" action="/admin/defaults">
+      <%- include('../partials/csrf') %>
+      <div class="form-group">
+        <label for="default_tax_rate">Sales Tax Rate (%)</label>
+        <input type="number" name="default_tax_rate" id="default_tax_rate" class="form-control"
+               step="0.01" min="0" max="100"
+               value="<%= (parseFloat(defaults.default_tax_rate) * 100).toFixed(2) %>">
+        <small class="text-muted">New stores will start with this tax rate. Enter as percentage (e.g. 6.00 for 6%).</small>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0;">
+      <h4 class="mb-1">Personalization Pricing</h4>
+      <p class="text-muted mb-2" style="font-size:0.85rem;">Set to $0.00 if personalization is included in the base shirt price.</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="default_personalization_name_price">Name Printing ($)</label>
+          <input type="number" name="default_personalization_name_price" id="default_personalization_name_price"
+                 class="form-control" step="0.01" min="0"
+                 value="<%= parseFloat(defaults.default_personalization_name_price).toFixed(2) %>">
+        </div>
+        <div class="form-group">
+          <label for="default_personalization_number_price">Number Printing ($)</label>
+          <input type="number" name="default_personalization_number_price" id="default_personalization_number_price"
+                 class="form-control" step="0.01" min="0"
+                 value="<%= parseFloat(defaults.default_personalization_number_price).toFixed(2) %>">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save Defaults</button>
+    </form>
+  </div>
+
+  <!-- Size Template -->
+  <div class="card">
+    <h3 class="card-title">Default Size Chart</h3>
+    <p class="text-muted mb-2" style="font-size:0.85rem;">These sizes are automatically added to every new store. Edit here to change the template for future stores.</p>
+
+    <% if (sizes.length > 0) { %>
+      <div class="table-wrap mb-2">
+        <table>
+          <thead>
+            <tr><th>Size</th><th>Upcharge</th><th>Order</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% for (const s of sizes) { %>
+              <tr>
+                <td><strong><%= s.name %></strong></td>
+                <td><%= parseFloat(s.price_modifier) > 0 ? '+$' + parseFloat(s.price_modifier).toFixed(2) : '—' %></td>
+                <td><%= s.sort_order %></td>
+                <td>
+                  <form method="POST" action="/admin/defaults/sizes/<%= s.id %>/delete" style="display:inline">
+                    <%- include('../partials/csrf') %>
+                    <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                  </form>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <p class="text-muted mb-2">No default sizes. Add some below.</p>
+    <% } %>
+
+    <form method="POST" action="/admin/defaults/sizes">
+      <%- include('../partials/csrf') %>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="name">Size Name</label>
+          <input type="text" name="name" id="name" class="form-control" required placeholder="e.g. 5XL">
+        </div>
+        <div class="form-group">
+          <label for="price_modifier">Upcharge ($)</label>
+          <input type="number" name="price_modifier" id="price_modifier" class="form-control" step="0.01" value="0.00">
+        </div>
+        <div class="form-group">
+          <label for="sort_order">Order</label>
+          <input type="number" name="sort_order" id="sort_order" class="form-control" value="<%= sizes.length + 1 %>">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Add Size</button>
+    </form>
+  </div>
+
+</div>
+
+<%- include('../partials/admin-footer') %>

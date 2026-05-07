@@ -1,0 +1,52 @@
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer-grid">
+        <div class="site-footer-col">
+          <strong><%= brand.name %></strong>
+          <% if (site && site.companyAddress) { %>
+            <div>
+              <a href="https://www.google.com/maps?q=<%= encodeURIComponent(site.companyAddress) %>"
+                 target="_blank" rel="noopener noreferrer"
+                 title="Open in Google Maps"><%= site.companyAddress %></a>
+            </div>
+          <% } %>
+          <% if (site && site.companyPhone) { %>
+            <div>Phone: <a href="tel:<%= site.companyPhone.replace(/[^0-9+]/g, '') %>"><%= site.companyPhone %></a></div>
+          <% } %>
+          <% if (site && site.companyEmail) { %>
+            <div>Email: <a href="mailto:<%= site.companyEmail %>"><%= site.companyEmail %></a></div>
+          <% } %>
+        </div>
+
+        <div class="site-footer-col">
+          <strong>Links</strong>
+          <div><a href="/">Stores</a></div>
+          <div><a href="/track">Track Order</a></div>
+          <div><a href="/contact">Contact Us</a></div>
+          <div><a href="/privacy">Privacy Policy</a></div>
+        </div>
+
+        <% if (site && site.facebookUrl) { %>
+          <div class="site-footer-col">
+            <strong>Follow</strong>
+            <div>
+              <a href="<%= site.facebookUrl %>" target="_blank" rel="noopener noreferrer"
+                 style="display:inline-flex;align-items:center;gap:6px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/>
+                </svg>
+                Facebook
+              </a>
+            </div>
+          </div>
+        <% } %>
+      </div>
+      <div class="site-footer-bottom">
+        &copy; <%= new Date().getFullYear() %> <%= brand.name %>. All rights reserved.
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

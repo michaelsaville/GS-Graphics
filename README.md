@@ -1,37 +1,53 @@
-# GS-Graphics — Print Shop Storefront Framework
+# GS-Graphics — Print Shop Storefront
 
-Multi-tenant campaign-based storefront for decorated apparel print shops.
-Each deployment is a single client's isolated instance.
+Multi-tenant storefront framework for a decorated apparel print shop. Each campaign (school, team, etc.) lives at `/store/<slug>`. Orders flow through pending → paid → processing → ready → fulfilled with audit log, customer status emails, and a per-pickup-event roster.
 
-## Quick Start (Claude Code)
+Live at https://gsgraphics.pcc2k.com.
 
-See `CLAUDE.md` for full automated deployment instructions.
-
-## Manual Setup
+## Quickstart (local dev)
 
 ```bash
-npm install
-cp .env.example .env
-# Edit .env with your values
-node scripts/hash-password.js yourAdminPassword
-# Paste hash into .env as ADMIN_PASSWORD_HASH
-node scripts/migrate.js
-node app.js
+cd /home/msaville/GS-Graphics
+docker compose up -d --build
+# admin at https://gsgraphics.pcc2k.com/admin
 ```
 
-## Features
+Migrations:
 
-- **Multi-store campaigns** — each school/team gets their own store at `/store/slug`
-- **Store on/off switch** — close a store to stop orders instantly
-- **Item variants** — colors + sizes per item, global size price modifiers
-- **Personalization** — optional name/number printing with per-item upcharge
-- **Guest checkout** — full contact capture (name, address, email, phone, cell)
-- **Pickup events** — defined per store, customer selects at checkout
-- **Square Checkout** — redirect-based payment flow, no card data on your server
-- **Order report** — blank apparel order summary + personalization list + CSV export
+```bash
+docker run --rm --network gs-graphics_default \
+  -v /home/msaville/GS-Graphics:/app -w /app \
+  -e DB_HOST=db -e DB_PORT=5432 -e DB_NAME=gs_graphics_db \
+  -e DB_USER=gs_graphics_user -e DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2) \
+  node:20-alpine node scripts/migrate-NNN-name.js
+```
 
-## Deployment
+## Feature surface
 
-One `.env` file per client deployment. Same codebase, isolated database per client.
+**Customer**
+- Multi-store storefront, cart, checkout (Square)
+- Order tracking (`/track`) by email + order #
+- Per-store order deadlines that block new orders past the cutoff
+- Editable About blurb, footer info, Facebook link
+- Editable Privacy Policy, Contact form
+- Maintenance mode toggle (full-site coming-soon)
 
-See `CLAUDE.md` for step-by-step server deployment instructions.
+**Operator (admin)**
+- Stores, items, colors, sizes, pickup events
+- Order list with filters (status / store / customer search / date range) + bulk status change
+- Order detail with line-item edit, status workflow, audit log, customer notification
+- Pickup-event roster with one-click "Mark fulfilled"
+- Four reports: sales tax / vendor blank order / customization detail / sort & distribution
+- Site settings: theme color, logo, company info, About, privacy, contact recipient
+- Contact submissions inbox
+
+**Security / quality**
+- CSRF on every POST
+- Square server-side payment verification (no trust in redirect query)
+- Session-backed admin auth, bcrypt password hash
+- Self-serve order tracking with no information leak
+
+See `CLAUDE.md` for full architecture notes, file layout, and operational recipes.
+
+## Stack
+Node 20 / Express 4 / EJS / Postgres 16 / Square Checkout / nodemailer SMTP. All containerized via `docker-compose.yml`.

@@ -1,0 +1,63 @@
+<%- include('../partials/header') %>
+
+<h2 class="mb-2">Your Cart</h2>
+
+<% if (cart.length === 0) { %>
+  <div class="card text-center text-muted">
+    <p>Your cart is empty.</p>
+    <a href="/" class="btn btn-primary mt-1">Browse Stores</a>
+  </div>
+<% } else { %>
+  <div class="card">
+    <div class="table-wrap">
+      <table class="cart-table">
+        <thead>
+          <tr><th>Item</th><th>Color</th><th>Size</th><th>Personalization</th><th>Qty</th><th>Price</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% for (let i = 0; i < cart.length; i++) { const c = cart[i]; %>
+            <tr>
+              <td><strong><%= c.itemName %></strong></td>
+              <td><%= c.colorName || '—' %></td>
+              <td><%= c.sizeName || '—' %></td>
+              <td>
+                <% if (c.personalizationName || c.personalizationNumber) { %>
+                  <%= c.personalizationName || '' %> <%= c.personalizationNumber ? '#' + c.personalizationNumber : '' %>
+                <% } else { %>—<% } %>
+              </td>
+              <td><%= c.quantity %></td>
+              <td>$<%= (c.unitPrice * c.quantity).toFixed(2) %></td>
+              <td>
+                <form method="POST" action="/cart/remove" style="display:inline">
+                  <%- include('../partials/csrf') %>
+                  <input type="hidden" name="index" value="<%= i %>">
+                  <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                </form>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="text-align:right;padding:12px 0;">
+      <div>Subtotal: $<%= subtotal.toFixed(2) %></div>
+      <% if (tax > 0) { %>
+        <div class="text-muted">
+          Tax<% if (blendedTaxRate !== null) { %> (<%= (blendedTaxRate * 100).toFixed(2) %>%)<% } %>: $<%= tax.toFixed(2) %>
+        </div>
+      <% } %>
+      <div class="cart-total" style="padding:4px 0;">Total: $<%= total.toFixed(2) %></div>
+    </div>
+
+    <div class="d-flex justify-between">
+      <form method="POST" action="/cart/clear">
+        <%- include('../partials/csrf') %>
+        <button type="submit" class="btn btn-secondary">Clear Cart</button>
+      </form>
+      <a href="/checkout" class="btn btn-primary">Proceed to Checkout</a>
+    </div>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

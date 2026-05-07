@@ -1,0 +1,97 @@
+<%- include('../partials/admin-header') %>
+
+<h2 class="mb-2">Dashboard</h2>
+
+<div class="stat-cards">
+  <div class="stat-card" style="border-top:3px solid #1565c0;">
+    <div class="stat-value"><%= counts.needs_action %></div>
+    <div class="stat-label">In production</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid #2e7d32;">
+    <div class="stat-value"><%= counts.ready %></div>
+    <div class="stat-label">Ready for pickup</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid #888;">
+    <div class="stat-value"><%= counts.fulfilled %></div>
+    <div class="stat-label">Fulfilled</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid #d4a017;">
+    <div class="stat-value">$<%= parseFloat(counts.revenue).toFixed(0) %></div>
+    <div class="stat-label">Revenue</div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div>
+    <div class="d-flex justify-between align-center mb-1">
+      <h3>Recent Orders</h3>
+      <a href="/admin/orders" class="text-muted">View all &rarr;</a>
+    </div>
+
+    <% if (recent.length === 0) { %>
+      <div class="card text-center text-muted">No orders yet.</div>
+    <% } else { %>
+      <div class="card" style="padding:0;">
+        <div class="table-wrap">
+          <table style="margin:0;">
+            <thead><tr><th>#</th><th>Customer</th><th>Store</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>
+              <% for (const o of recent) { const oi = orderStatus.info(o.status); %>
+                <tr style="cursor:pointer;" onclick="window.location='/admin/orders/<%= o.id %>'">
+                  <td><%= o.id %></td>
+                  <td><%= o.customer_name %></td>
+                  <td><small><%= o.store_name || '—' %></small></td>
+                  <td>$<%= parseFloat(o.total_amount).toFixed(2) %></td>
+                  <td><span class="badge badge-<%= oi.tone %>"><%= oi.label %></span></td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <div>
+    <div class="d-flex justify-between align-center mb-1">
+      <h3>Stores</h3>
+      <a href="/admin/stores/new" class="btn btn-primary btn-sm">+ New Store</a>
+    </div>
+
+    <% if (stores.length === 0) { %>
+      <div class="card text-center text-muted">No stores yet.</div>
+    <% } else { %>
+      <% for (const s of stores) {
+        const closeAt = s.orders_close_at ? new Date(s.orders_close_at) : null;
+        const closed = closeAt && new Date() >= closeAt;
+        const statusLabel = !s.active ? 'Inactive' : closed ? 'Closed (deadline)' : 'Open';
+        const statusTone  = !s.active ? 'inactive' : closed ? 'danger' : 'active';
+      %>
+        <div class="card" style="padding:12px;margin-bottom:8px;">
+          <div class="d-flex justify-between align-center">
+            <div>
+              <strong><%= s.name %></strong>
+              <span class="badge badge-<%= statusTone %>" style="margin-left:6px;"><%= statusLabel %></span>
+              <% if (closeAt && !closed) { %>
+                <small class="text-muted" style="display:block;margin-top:2px;">Closes <%= closeAt.toLocaleString() %></small>
+              <% } %>
+            </div>
+            <div class="text-right">
+              <div><strong><%= s.order_count %></strong> <small class="text-muted">orders</small></div>
+              <div><strong>$<%= parseFloat(s.revenue).toFixed(2) %></strong> <small class="text-muted">revenue</small></div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <a href="/admin/stores/<%= s.id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
+            <a href="/admin/stores/<%= s.id %>/items" class="btn btn-secondary btn-sm">Items</a>
+            <a href="/admin/stores/<%= s.id %>/events" class="btn btn-secondary btn-sm">Pickups</a>
+            <a href="/admin/stores/<%= s.id %>/report" class="btn btn-secondary btn-sm">Report</a>
+            <a href="/store/<%= s.slug %>" target="_blank" class="btn btn-secondary btn-sm">View &rarr;</a>
+          </div>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/admin-footer') %>

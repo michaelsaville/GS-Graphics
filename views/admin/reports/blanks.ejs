@@ -1,0 +1,74 @@
+<%- include('../../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <div>
+    <h2>Vendor Blank Order</h2>
+    <a href="/admin/reports" class="text-muted">&larr; All reports</a>
+  </div>
+  <div class="d-flex gap-1">
+    <% if (selectedIds.length > 0) { %>
+      <a href="/admin/reports/blanks/export?<%= selectedIds.map(id => 'store_id=' + id).join('&') %>" class="btn btn-secondary btn-sm">Export CSV</a>
+    <% } %>
+    <button onclick="window.print()" class="btn btn-primary btn-sm">Print</button>
+  </div>
+</div>
+
+<div class="card">
+  <form method="GET" action="/admin/reports/blanks">
+    <input type="hidden" name="applied" value="1">
+    <h3 class="card-title">Pick stores to include</h3>
+    <p class="text-muted mb-2">Tick any combination. Active stores are selected by default on first load.</p>
+    <div class="grid grid-3">
+      <% for (const s of allStores) { %>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;">
+          <input type="checkbox" name="store_id" value="<%= s.id %>"
+                 <%= selectedIds.includes(s.id) ? 'checked' : '' %>>
+          <span>
+            <%= s.name %>
+            <% if (!s.active) { %><small class="text-muted">(inactive)</small><% } %>
+          </span>
+        </label>
+      <% } %>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm mt-1">Update</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 class="card-title">
+    Aggregate quantities — <%= selectedIds.length %> store<%= selectedIds.length === 1 ? '' : 's' %> selected
+  </h3>
+  <p class="text-muted mb-2">Paid orders only. Shows what to order from your blank vendor.</p>
+
+  <% if (selectedIds.length === 0) { %>
+    <p class="text-muted">Select at least one store above and click Update.</p>
+  <% } else if (rows.length === 0) { %>
+    <p class="text-muted">No paid orders for the selected stores.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Color</th><th>Size</th><th class="text-right">Total Qty</th></tr>
+        </thead>
+        <tbody>
+          <% for (const r of rows) { %>
+            <tr>
+              <td><%= r.item_name %></td>
+              <td><%= r.color_name || '—' %></td>
+              <td><%= r.size_name || '—' %></td>
+              <td class="text-right"><strong><%= r.total_qty %></strong></td>
+            </tr>
+          <% } %>
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #333;font-weight:bold;">
+            <td colspan="3">Total Pieces</td>
+            <td class="text-right"><%= totalQty %></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../../partials/admin-footer') %>

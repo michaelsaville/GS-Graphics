@@ -1,0 +1,62 @@
+<%- include('../partials/admin-header') %>
+
+<div class="d-flex justify-between align-center mb-2">
+  <h2>Manage Stores</h2>
+  <a href="/admin/stores/new" class="btn btn-primary btn-sm">+ New Store</a>
+</div>
+
+<% if (stores.length === 0) { %>
+  <div class="card text-center text-muted">No stores yet.</div>
+<% } else { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Slug</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% for (const s of stores) { %>
+          <tr>
+            <td>
+              <% if (s.image_url) { %>
+                <img src="<%= s.image_url %>" alt="" style="width:50px;height:50px;object-fit:cover;border-radius:4px;">
+              <% } else { %>
+                <div style="width:50px;height:50px;background:#eee;border-radius:4px;"></div>
+              <% } %>
+            </td>
+            <td><strong><%= s.name %></strong></td>
+            <td><code><%= s.slug %></code></td>
+            <td>
+              <form method="POST" action="/admin/stores/<%= s.id %>/toggle" style="display:inline">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="badge <%= s.active ? 'badge-active' : 'badge-inactive' %>" style="cursor:pointer;border:none;">
+                  <%= s.active ? 'Active' : 'Inactive' %>
+                </button>
+              </form>
+            </td>
+            <td>
+              <a href="/admin/stores/<%= s.id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="/admin/stores/<%= s.id %>/items" class="btn btn-secondary btn-sm">Items</a>
+              <a href="/admin/stores/<%= s.id %>/sizes" class="btn btn-secondary btn-sm">Sizes</a>
+              <a href="/admin/stores/<%= s.id %>/events" class="btn btn-secondary btn-sm">Events</a>
+              <a href="/admin/stores/<%= s.id %>/report" class="btn btn-secondary btn-sm">Report</a>
+              <a href="/admin/stores/<%= s.id %>/export" class="btn btn-secondary btn-sm">CSV</a>
+              <form method="POST" action="/admin/stores/<%= s.id %>/delete" style="display:inline"
+                    onsubmit="return confirm('Delete this store and all its items?')">
+                <%- include('../partials/csrf') %>
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%- include('../partials/admin-footer') %>

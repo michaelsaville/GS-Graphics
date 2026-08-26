@@ -189,20 +189,46 @@ router.post('/', async (req, res) => {
       environment: square.environment === 'production' ? Environment.Production : Environment.Sandbox,
     });
 
-    const lineItems = cart.map(item => ({
-      name: `${item.itemName}${item.colorName ? ' - ' + item.colorName : ''}${item.sizeName ? ' (' + item.sizeName + ')' : ''}`,
-      quantity: String(item.quantity),
-      basePriceMoney: {
-        amount: BigInt(Math.round(item.unitPrice * 100)),
-        currency: 'USD',
-      },
-    }));
+    // Square has to be told about sales tax explicitly. Line items alone would bill
+    // the subtotal and leave the tax we recorded on the order uncollected. Tax rate is
+    // per store, so a cart spanning stores can carry more than one rate — emit one tax
+    // per distinct rate and apply it only to the lines it belongs to.
+    const taxUidByRate = new Map();
+    const taxes = [];
+    for (const item of cart) {
+      const rate = Number(item.taxRate || 0);
+      if (rate <= 0 || taxUidByRate.has(rate)) continue;
+      const uid = `tax-${taxes.length}`;
+      taxUidByRate.set(rate, uid);
+      taxes.push({
+        uid,
+        name: 'Sales Tax',
+        percentage: String(Number((rate * 100).toFixed(4))),
+        scope: 'LINE_ITEM',
+        type: 'ADDITIVE',
+      });
+    }
+
+    const lineItems = cart.map((item, i) => {
+      const taxUid = taxUidByRate.get(Number(item.taxRate || 0));
+      return {
+        uid: `line-${i}`,
+        name: `${item.itemName}${item.colorName ? ' - ' + item.colorName : ''}${item.sizeName ? ' (' + item.sizeName + ')' : ''}`,
+        quantity: String(item.quantity),
+        basePriceMoney: {
+          amount: BigInt(Math.round(item.unitPrice * 100)),
+          currency: 'USD',
+        },
+        ...(taxUid ? { appliedTaxes: [{ taxUid }] } : {}),
+      };
+    });
 
     const { result } = await client.checkoutApi.createPaymentLink({
       idempotencyKey: uuidv4(),
       order: {
         locationId: square.locationId,
         lineItems,
+        ...(taxes.length ? { taxes } : {}),
       },
       checkoutOptions: {
         redirectUrl: `${config.baseUrl}/checkout/callback?order_id=${orderId}`,
@@ -262,11 +288,25 @@ router.get('/callback', async (req, res) => {
     const squareState = result.order && result.order.state;
 
     if (squareState === 'COMPLETED') {
-      // Pull the payment_id off the Order's tenders so we can refund later if needed
-      const paymentId = (result.order.tenders && result.order.tenders[0] && result.order.tenders[0].payment_id) || '';
+      // Pull the payment id off the Order's tenders so we can refund later if needed.
+      // The SDK camel-cases every response field, so this is `paymentId`, not `payment_id` —
+      // reading the snake_case name yields undefined and silently kills the refund button.
+      const tender = (result.order.tenders && result.order.tenders[0]) || {};
+      const paymentId = tender.paymentId || '';
+
+      // Record what Square actually charged. Square applies tax per line and rounds each,
+      // while computeCartTotals rounds the sum once, so the two can differ by a cent.
+      // Trust the processor so our books match the card statement.
+      const money = m => (m && m.amount != null ? Number(m.amount) / 100 : null);
+      const chargedTotal = money(result.order.totalMoney);
+      const chargedTax   = money(result.order.totalTaxMoney);
+
       await db.query(
-        'UPDATE orders SET status = $1, square_payment_id = $2 WHERE id = $3',
-        ['paid', paymentId, orderId]
+        `UPDATE orders SET status = $1, square_payment_id = $2,
+                total_amount = COALESCE($3, total_amount),
+                tax_amount   = COALESCE($4, tax_amount)
+         WHERE id = $5`,
+        ['paid', paymentId, chargedTotal, chargedTax, orderId]
       );
       req.session.cart = [];
       // Tag this session as the buyer

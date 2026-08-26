@@ -84,22 +84,29 @@ const PERSONALIZATION = { name: 3.00, number: 2.00 };
 
 // Two colorways on every item, per the 8 mockups (Black + Grey of each garment).
 //
-// ⚠ The grey hex below is a placeholder. CBMS's graphite swatch was sampled
-// from the actual JPEG; the Keyser photos are not on this box yet, so this is a
-// generic sport-grey. Re-sample it from KMS_*_Grey.jpg once the photos land.
+// Grey sampled from the actual mockups (ffmpeg, 4 flat-fabric regions per
+// garment, averaged across all four grey JPEGs) — it is a sport-grey heather,
+// not a flat mid-grey. Same approach as the CBMS graphite swatch.
 const COLORS = [
   { name: 'Black', hex_code: '#000000', sort_order: 1 },
-  { name: 'Grey',  hex_code: '#9EA2A2', sort_order: 2 },
+  { name: 'Grey',  hex_code: '#ABAAAD', sort_order: 2 },
 ];
 
-// Expected upload filenames. The script writes image_url ON INSERT ONLY, so
-// dropping these into /app/public/uploads with these exact names is all that is
-// needed. See the console output at the end of a run for the docker cp recipe.
+// Upload filenames. The script writes image_url ON INSERT ONLY, so a re-run
+// never clobbers a photo swapped in via /admin.
 //
-// ⚠ Only ONE photo per item can be shown: `item_colors` has no image column, so
-// the four KMS_*_Grey.jpg files have nowhere to render. Black is used as the
-// primary because it is the first colorway. This is the same known gap that
-// affects the CBMS "Grind to Win" tee, except here it hits every item.
+// All 8 mockups were pulled from Jentry's email via Graph and are loaded in
+// /app/public/uploads. The black set is referenced below; the grey set is
+// staged alongside it as kms-volleyball-<garment>-grey.jpg but is currently
+// UNREFERENCED.
+//
+// ⚠ Only ONE photo per item can be shown: `item_colors` has no image column,
+// so the grey files have nowhere to render and a shopper choosing Grey sees the
+// black garment. Black is the primary because it is the first colorway. Same
+// gap as the CBMS "Grind to Win" tee — but there it was one item and was
+// consciously left alone; here it hits all four, and colour is the main choice
+// a shopper makes. Fixing it means adding image_url to item_colors, swapping
+// the photo on colour select, and exposing it in /admin.
 const GARMENTS = [
   {
     key: 'tee',
@@ -107,8 +114,8 @@ const GARMENTS = [
     price: PRICE.tee,
     image: '/uploads/kms-volleyball-tshirt.jpg',
     sort_order: 10,
-    blurb: 'A soft, everyday cotton tee with the Keyser volleyball design printed on the front. ' +
-           'Light enough for warm-ups and school days, and it holds its color wash after wash.',
+    blurb: 'A soft, everyday cotton tee. Light enough for warm-ups and school days, ' +
+           'and it holds its color wash after wash.',
   },
   {
     key: 'longsleeve',
@@ -116,8 +123,8 @@ const GARMENTS = [
     price: PRICE.longsleeve,
     image: '/uploads/kms-volleyball-longsleeve.jpg',
     sort_order: 20,
-    blurb: 'The same team design on a long sleeve cotton tee. A good layer for cool mornings, ' +
-           'chilly bleachers, and practices once the season turns.',
+    blurb: 'A long sleeve cotton tee. A good layer for cool mornings, chilly bleachers, ' +
+           'and practices once the season turns.',
   },
   {
     key: 'crewneck',
@@ -125,8 +132,8 @@ const GARMENTS = [
     price: PRICE.crewneck,
     image: '/uploads/kms-volleyball-crewneck.jpg',
     sort_order: 30,
-    blurb: 'A classic fleece crewneck with the team design across the chest. Warm, roomy, ' +
-           'and easy to pull on over a jersey or a school shirt.',
+    blurb: 'A classic fleece crewneck. Warm, roomy, and easy to pull on over a jersey ' +
+           'or a school shirt.',
   },
   {
     key: 'hoodie',
@@ -134,24 +141,30 @@ const GARMENTS = [
     price: PRICE.hoodie,
     image: '/uploads/kms-volleyball-hoodie.jpg',
     sort_order: 40,
-    blurb: 'A heavyweight hooded sweatshirt with a front pouch pocket and the team design ' +
-           'on the chest. The warmest piece in the store and the one that gets worn all season.',
+    blurb: 'A heavyweight Gildan hooded sweatshirt with a front pouch pocket. The warmest ' +
+           'piece in the store and the one that gets worn all season.',
   },
 ];
 
 const STORE_LINE =
-  'Volleyball spirit wear for Keyser Middle School players, parents, and fans.';
+  'Lady Tornado volleyball spirit wear for Keyser Middle School players, parents, and fans.';
 
+// Artwork, read off the mockups rather than guessed: a single front chest print
+// reading "Lady Tornado" in gold script over a block "TORNADO", with "Volleyball"
+// in white script beneath, a volleyball and net behind. Gold and white on both
+// colorways. There is no back print in any mockup, so the copy does NOT promise
+// a placement for the name and number — Jentry has not said where those go.
 function buildItems() {
   return GARMENTS.map(g => ({
-    name: `Keyser Volleyball ${g.label}`,
+    name: `Lady Tornado Volleyball ${g.label}`,
     base_price: g.price,
     sort_order: g.sort_order,
     personalization_enabled: true,
     image_url: g.image,
     description:
-      `${STORE_LINE} ${g.blurb} Available in black and grey, and you can add a player ` +
-      `name and number on the back. Printed locally by Green Spring Graphics.`,
+      `${STORE_LINE} ${g.blurb} The Lady Tornado volleyball design is printed across the ` +
+      `chest in gold and white. Choose black or sport grey, and add a player name and ` +
+      `number if you like. Printed locally by Green Spring Graphics.`,
     colors: COLORS,
   }));
 }
@@ -241,15 +254,15 @@ async function seed() {
 
     console.log(`Seeded "${STORE_SLUG}" (store id ${storeId}) — ${items.length} items, ${SIZES.length} sizes.`);
     console.log('');
-    console.log('Store is seeded active=false (preview). Open it in /admin when ready.');
+    console.log('Store is seeded active=false, which HIDES it completely — /store/:slug');
+    console.log('filters on active = true, so it 404s. That is not preview mode.');
+    console.log('Preview = active=true + orders_close_at in the PAST (browsable, no Add');
+    console.log('to Cart). Opening for real = clear orders_close_at, or set the cutoff.');
     console.log('orders_close_at is NOT set — Jentry has not given a cutoff date.');
     console.log('');
-    console.log('Photos still needed. Export the 8 attachments from his 2026-08-25');
-    console.log('email, then (Black is the primary; Grey has nowhere to render yet):');
-    console.log('  docker cp KMS_T-Shirt_Black.jpg   gs-graphics-app:/app/public/uploads/kms-volleyball-tshirt.jpg');
-    console.log('  docker cp KMS_LongSleeve_Black.jpg gs-graphics-app:/app/public/uploads/kms-volleyball-longsleeve.jpg');
-    console.log('  docker cp KMS_Crewneck_Black.jpg   gs-graphics-app:/app/public/uploads/kms-volleyball-crewneck.jpg');
-    console.log('  docker cp KMS_Hoodie_Black.jpg     gs-graphics-app:/app/public/uploads/kms-volleyball-hoodie.jpg');
+    console.log('Photos are loaded (all 8 in /app/public/uploads). The 4 grey mockups are');
+    console.log('staged as kms-volleyball-<garment>-grey.jpg but cannot render until');
+    console.log('item_colors gains an image column — Grey currently shows the black garment.');
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Seed failed, rolled back:', err.message);

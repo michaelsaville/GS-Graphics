@@ -6,8 +6,18 @@
 
 <div class="grid grid-2">
   <div>
-    <% if (item.image_url) { %>
-      <img src="<%= item.image_url %>" alt="<%= item.name %>" style="width:100%;border-radius:var(--radius);background:#fafafa;">
+    <%
+      // A colorway may carry its own photo (item_colors.image_url). The first
+      // colorway's photo, when it has one, is what loads — so the page opens
+      // showing the same colour the Color radio defaults to. Falls back to the
+      // item photo, which is all that existed before per-colour images.
+      const firstColorImage = colors.length > 0 ? colors[0].image_url : '';
+      const openingImage = firstColorImage || item.image_url;
+    %>
+    <% if (openingImage) { %>
+      <img src="<%= openingImage %>" alt="<%= item.name %>" id="item-photo"
+           data-fallback="<%= item.image_url %>"
+           style="width:100%;border-radius:var(--radius);background:#fafafa;">
     <% } else { %>
       <div style="width:100%;height:300px;background:#f0f0f0;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:#ccc;font-size:1.5rem;">
         No Image
@@ -36,7 +46,8 @@
           <div>
             <% for (const c of colors) { %>
               <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-right:12px;">
-                <input type="radio" name="color_id" value="<%= c.id %>" <%= colors.indexOf(c) === 0 ? 'checked' : '' %> required>
+                <input type="radio" name="color_id" value="<%= c.id %>" <%= colors.indexOf(c) === 0 ? 'checked' : '' %>
+                       data-image="<%= c.image_url || '' %>" required>
                 <span class="color-swatch" style="background:<%= c.hex_code %>" title="<%= c.name %>"></span>
                 <span style="font-size:0.85rem"><%= c.name %></span>
               </label>
@@ -91,5 +102,22 @@
     <% } %>
   </div>
 </div>
+
+<script>
+  // Swap the product photo when a colorway with its own image is chosen.
+  // Colours without an image fall back to the item photo rather than leaving
+  // the previous colour's picture up, which would be worse than showing none.
+  (function () {
+    var photo = document.getElementById('item-photo');
+    if (!photo) return;
+    var fallback = photo.getAttribute('data-fallback') || '';
+    document.querySelectorAll('input[name="color_id"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        var next = this.getAttribute('data-image') || fallback;
+        if (next && next !== photo.getAttribute('src')) photo.setAttribute('src', next);
+      });
+    });
+  })();
+</script>
 
 <%- include('../partials/footer') %>

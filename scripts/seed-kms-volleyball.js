@@ -87,32 +87,33 @@ const PERSONALIZATION = { name: 3.00, number: 2.00 };
 // Grey sampled from the actual mockups (ffmpeg, 4 flat-fabric regions per
 // garment, averaged across all four grey JPEGs) — it is a sport-grey heather,
 // not a flat mid-grey. Same approach as the CBMS graphite swatch.
-const COLORS = [
-  { name: 'Black', hex_code: '#000000', sort_order: 1 },
-  { name: 'Grey',  hex_code: '#ABAAAD', sort_order: 2 },
-];
+//
+// Each colorway carries its own photo (item_colors.image_url, added in
+// migration 013), so picking Grey on the item page actually shows the grey
+// garment. Before that column existed only one photo per item could be shown.
+const COLOR_HEX = { black: '#000000', grey: '#ABAAAD' };
+
+function colorsFor(g) {
+  return [
+    { name: 'Black', hex_code: COLOR_HEX.black, sort_order: 1, image_url: g.image },
+    { name: 'Grey',  hex_code: COLOR_HEX.grey,  sort_order: 2, image_url: g.imageGrey },
+  ];
+}
 
 // Upload filenames. The script writes image_url ON INSERT ONLY, so a re-run
 // never clobbers a photo swapped in via /admin.
 //
 // All 8 mockups were pulled from Jentry's email via Graph and are loaded in
-// /app/public/uploads. The black set is referenced below; the grey set is
-// staged alongside it as kms-volleyball-<garment>-grey.jpg but is currently
-// UNREFERENCED.
-//
-// ⚠ Only ONE photo per item can be shown: `item_colors` has no image column,
-// so the grey files have nowhere to render and a shopper choosing Grey sees the
-// black garment. Black is the primary because it is the first colorway. Same
-// gap as the CBMS "Grind to Win" tee — but there it was one item and was
-// consciously left alone; here it hits all four, and colour is the main choice
-// a shopper makes. Fixing it means adding image_url to item_colors, swapping
-// the photo on colour select, and exposing it in /admin.
+// /app/public/uploads. BOTH sets are used: the black file is the item's main
+// photo, and each colorway also carries its own photo via item_colors.image_url
+// (migration 013), so choosing Grey on the item page shows the grey garment.
 const GARMENTS = [
   {
     key: 'tee',
     label: 'T-Shirt',
     price: PRICE.tee,
     image: '/uploads/kms-volleyball-tshirt.jpg',
+    imageGrey: '/uploads/kms-volleyball-tshirt-grey.jpg',
     sort_order: 10,
     blurb: 'A soft, everyday cotton tee. Light enough for warm-ups and school days, ' +
            'and it holds its color wash after wash.',
@@ -122,6 +123,7 @@ const GARMENTS = [
     label: 'Long Sleeve T-Shirt',
     price: PRICE.longsleeve,
     image: '/uploads/kms-volleyball-longsleeve.jpg',
+    imageGrey: '/uploads/kms-volleyball-longsleeve-grey.jpg',
     sort_order: 20,
     blurb: 'A long sleeve cotton tee. A good layer for cool mornings, chilly bleachers, ' +
            'and practices once the season turns.',
@@ -131,6 +133,7 @@ const GARMENTS = [
     label: 'Crewneck Sweatshirt',
     price: PRICE.crewneck,
     image: '/uploads/kms-volleyball-crewneck.jpg',
+    imageGrey: '/uploads/kms-volleyball-crewneck-grey.jpg',
     sort_order: 30,
     blurb: 'A classic fleece crewneck. Warm, roomy, and easy to pull on over a jersey ' +
            'or a school shirt.',
@@ -140,6 +143,7 @@ const GARMENTS = [
     label: 'Hoodie',
     price: PRICE.hoodie,
     image: '/uploads/kms-volleyball-hoodie.jpg',
+    imageGrey: '/uploads/kms-volleyball-hoodie-grey.jpg',
     sort_order: 40,
     blurb: 'A heavyweight Gildan hooded sweatshirt with a front pouch pocket. The warmest ' +
            'piece in the store and the one that gets worn all season.',
@@ -165,7 +169,7 @@ function buildItems() {
       `${STORE_LINE} ${g.blurb} The Lady Tornado volleyball design is printed across the ` +
       `chest in gold and white. Choose black or sport grey, and add a player name and ` +
       `number if you like. Printed locally by Green Spring Graphics.`,
-    colors: COLORS,
+    colors: colorsFor(g),
   }));
 }
 
@@ -230,8 +234,8 @@ async function upsertItem(client, storeId, item) {
   await client.query('DELETE FROM item_colors WHERE item_id = $1', [itemId]);
   for (const c of item.colors) {
     await client.query(
-      'INSERT INTO item_colors (item_id, name, hex_code, sort_order) VALUES ($1,$2,$3,$4)',
-      [itemId, c.name, c.hex_code, c.sort_order]
+      'INSERT INTO item_colors (item_id, name, hex_code, sort_order, image_url) VALUES ($1,$2,$3,$4,$5)',
+      [itemId, c.name, c.hex_code, c.sort_order, c.image_url || '']
     );
   }
   return itemId;
@@ -260,9 +264,8 @@ async function seed() {
     console.log('to Cart). Opening for real = clear orders_close_at, or set the cutoff.');
     console.log('orders_close_at is NOT set — Jentry has not given a cutoff date.');
     console.log('');
-    console.log('Photos are loaded (all 8 in /app/public/uploads). The 4 grey mockups are');
-    console.log('staged as kms-volleyball-<garment>-grey.jpg but cannot render until');
-    console.log('item_colors gains an image column — Grey currently shows the black garment.');
+    console.log('All 8 photos are wired: black as each item image_url, and both');
+    console.log('colorways via item_colors.image_url (needs migration 013).');
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Seed failed, rolled back:', err.message);

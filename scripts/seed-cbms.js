@@ -155,8 +155,10 @@ function sportItems(sport) {
         '"Grind to Win" helmet graphic across the back with the team motto — ' +
         'Together we grind. Together we win. Available in graphite heather and black.',
       colors: [
-        { name: 'Graphite Heather', hex_code: '#858085', sort_order: 1 },
-        { name: 'Black',            hex_code: '#000000', sort_order: 2 },
+        { name: 'Graphite Heather', hex_code: '#858085', sort_order: 1,
+          image_url: '/uploads/cbms-football-grind-to-win.jpg' },
+        { name: 'Black',            hex_code: '#000000', sort_order: 2,
+          image_url: '/uploads/cbms-football-grind-to-win-black.jpg' },
       ],
     });
   }
@@ -275,8 +277,8 @@ async function upsertItem(client, storeId, item) {
   await client.query('DELETE FROM item_colors WHERE item_id = $1', [itemId]);
   for (const c of item.colors) {
     await client.query(
-      'INSERT INTO item_colors (item_id, name, hex_code, sort_order) VALUES ($1,$2,$3,$4)',
-      [itemId, c.name, c.hex_code, c.sort_order]
+      'INSERT INTO item_colors (item_id, name, hex_code, sort_order, image_url) VALUES ($1,$2,$3,$4,$5)',
+      [itemId, c.name, c.hex_code, c.sort_order, c.image_url || '']
     );
   }
   return itemId;
@@ -343,9 +345,10 @@ seed();
 //   3. Garment colors. "Grind to win shirts are the only ones that have
 //      different color options." Confirmed correct as built — one item, two
 //      item_colors rows. Everything else is single-color.
-//      ⚠ STILL OPEN (a display bug, not a client question): item_colors has no
-//      image column, so the Black colorway renders the graphite photo. The file
-//      cbms-football-grind-to-win-black.jpg is uploaded but unreferenced.
+//      ✅ RESOLVED 2026-08-26: item_colors gained an image_url column
+//      (migration 013), so each colorway now carries its own photo. The Black
+//      colorway shows cbms-football-grind-to-win-black.jpg instead of the
+//      graphite picture, and that file is no longer orphaned.
 //   4. Order deadline. He wants a cutoff — "a 2 week run or so and then open it
 //      back up later for a second run" — but has NOT named the date. Left unset
 //      deliberately; set orders_close_at per store once he does.

@@ -30,7 +30,7 @@ Live at https://gsgraphics.pcc2k.com.
 Tables (after all migrations):
 - `stores` (campaigns: name, slug, active, tax_rate, personalization_*_price, orders_close_at, order_deadline_message, image_url)
 - `store_sizes`, `default_sizes`, `shop_defaults` — size templates per store
-- `items`, `item_colors` — products + color options
+- `items`, `item_colors` — products + color options. `item_colors.image_url` (migration 013) is a per-colorway photo; empty means fall back to `items.image_url`. The item page swaps the photo when a color is picked.
 - `pickup_events` — pickup dates per store
 - `orders` (status, total_amount, tax_amount, square_order_id, admin_notes, customer_*)
 - `order_items` (line items with personalization)
@@ -79,6 +79,8 @@ Statuses (defined in `order-status.js`): `pending`, `paid`, `processing`, `ready
 
 ## CSRF
 Session-backed token (32 bytes hex) issued on first request. Hidden field `_csrf` required on every POST except webhooks (none yet). Multipart routes call `csrfCheck` after `multer` because multer parses the body, not body-parser. To add a new POST form, include `<%- include('../partials/csrf') %>` inside the form. Admin file-upload routes need `csrfCheck` after `upload.single(...)`.
+
+⚠ Adding a file input to an existing form makes it multipart, which silently moves it into that second category — the global CSRF middleware then sees an empty body. Both `/admin/stores/:storeId/items/:itemId/colors` routes hit this when per-color photos were added.
 
 ## Reports surface
 Index at `/admin/reports`. Four reports:

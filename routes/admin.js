@@ -307,12 +307,30 @@ router.get('/stores/:storeId/items/:itemId/colors', requireAdmin, async (req, re
   res.render('admin/colors', { title: 'Colors', store: store.rows[0], item: item.rows[0], colors: colors.rows });
 });
 
-router.post('/stores/:storeId/items/:itemId/colors', requireAdmin, async (req, res) => {
+// This form is multipart now that a colorway can carry its own photo, so it
+// needs csrfCheck AFTER multer -- multer, not body-parser, is what populates
+// req.body here, and the global CSRF middleware would find nothing to check.
+router.post('/stores/:storeId/items/:itemId/colors', requireAdmin, upload.single('image'), csrfCheck, async (req, res) => {
   const { name, hex_code, sort_order } = req.body;
+  const image_url = req.file ? `/uploads/${req.file.filename}` : '';
   await db.query(
-    'INSERT INTO item_colors (item_id, name, hex_code, sort_order) VALUES ($1, $2, $3, $4)',
-    [req.params.itemId, name, hex_code || '#000000', parseInt(sort_order) || 0]
+    'INSERT INTO item_colors (item_id, name, hex_code, sort_order, image_url) VALUES ($1, $2, $3, $4, $5)',
+    [req.params.itemId, name, hex_code || '#000000', parseInt(sort_order) || 0, image_url]
   );
+  res.redirect(`/admin/stores/${req.params.storeId}/items/${req.params.itemId}/colors`);
+});
+
+// Set, replace, or clear one colorway's photo. Clearing falls the item page
+// back to items.image_url rather than showing nothing.
+router.post('/stores/:storeId/items/:itemId/colors/:id/image', requireAdmin, upload.single('image'), csrfCheck, async (req, res) => {
+  const image_url = req.file
+    ? `/uploads/${req.file.filename}`
+    : (req.body.clear_image === 'on' ? '' : safeUrl(req.body.existing_image));
+  await db.query(
+    'UPDATE item_colors SET image_url = $1 WHERE id = $2 AND item_id = $3',
+    [image_url, req.params.id, req.params.itemId]
+  );
+  req.session.flash = { type: 'success', message: image_url ? 'Color photo updated.' : 'Color photo cleared.' };
   res.redirect(`/admin/stores/${req.params.storeId}/items/${req.params.itemId}/colors`);
 });
 

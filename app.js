@@ -32,7 +32,12 @@ app.use(helmet({
       connectSrc:  ["'self'"],
       objectSrc:   ["'none'"],
       baseUri:     ["'self'"],
-      formAction:  ["'self'", "https://*.squareup.com", "https://*.square.com"],
+      // Square Checkout redirects the buyer through square.link and lands them on
+      // checkout.square.site. form-action is enforced across the whole redirect chain,
+      // so every hop has to be listed or Chrome blocks the POST /checkout redirect and
+      // strands the buyer on an emptied cart.
+      formAction:  ["'self'", "https://*.squareup.com", "https://*.square.com",
+                    "https://square.link", "https://*.square.site"],
       frameAncestors: ["'none'"],
     },
   },
